@@ -101,13 +101,13 @@
 
 <div id="loading-overlay">
     <div class="loader-title">Xash3D WebAssembly</div>
-    <div id="loader-status" class="loader-status">请输入 valve.zip 的自定义路径：</div>
+    <div id="loader-status" class="loader-status">valve.zip：</div>
     <div class="progress-bar-container" id="bar-container" style="display: none;">
         <div id="progress-bar"></div>
     </div>
     <div class="path-input-container" id="input-container">
-        <input type="text" id="zip-path" value="./valve.zip">
-        <button id="start-btn">启动</button>
+        <input type="text" id="zip-path" value="https://cold-silence-567c.bengang904.workers.dev/?url=https://archive.org/download/valve_202605/valve.zip">
+        <button id="start-btn">Play</button>
     </div>
 </div>
 
@@ -156,21 +156,21 @@
         const files = {};
 
         try {
-            loaderStatus.innerText = "正在下载游戏核心资产...";
+            loaderStatus.innerText = "Downloading game core assets...";
             const zipArrayBuffer = await fetchWithProgress(zipUrl, (progress) => {
                 const totalProgress = Math.round(progress * 70);
                 progressBar.style.width = `${totalProgress}%`;
-                loaderStatus.innerText = `正在下载游戏核心资产: ${Math.round(progress * 100)}%`;
+                loaderStatus.innerText = `Downloading game core assets: ${Math.round(progress * 100)}%`;
             });
 
-            loaderStatus.innerText = "正在解析压缩包结构...";
+            loaderStatus.innerText = "Parsing the compressed file structure...";
             const zip = await JSZip.loadAsync(zipArrayBuffer);
             
             const zipFiles = Object.keys(zip.files).filter(p => !zip.files[p].dir);
             const totalFiles = zipFiles.length;
             let processedFiles = 0;
 
-            loaderStatus.innerText = "正在解压并写入虚拟文件系统...";
+            loaderStatus.innerText = "Decompressing and writing to the virtual file system...";
             
             await Promise.all(zipFiles.map(async p => {
                 const file = zip.files[p];
@@ -182,13 +182,13 @@
                 const totalProgress = 70 + Math.round(unzipProgress * 30);
                 
                 progressBar.style.width = `${totalProgress}%`;
-                loaderStatus.innerText = `正在解压资产文件 (${processedFiles}/${totalFiles})`;
+                loaderStatus.innerText = `Unzipping asset files (${processedFiles}/${totalFiles})`;
             }));
 
-            loaderStatus.innerText = "下载附加组件...";
+            loaderStatus.innerText = "Download add-ons...";
             const extras = await (await fetch('https://cdn.jsdelivr.net/npm/cs16-client@latest/dist/cstrike/extras.pk3')).arrayBuffer();
 
-            loaderStatus.innerText = "正在启动 Xash3D 引擎...";
+            loaderStatus.innerText = "Starting the Xash3D engine...";
 
             Xash3D({
                 arguments: ['-windowed', '-game', 'cstrike', '+_vgui_menus', '0', '-ref', 'webgl2'],
@@ -241,7 +241,7 @@
             barContainer.style.display = 'none';
             inputContainer.style.display = 'flex';
             loaderStatus.style.color = '#ec7063';
-            loaderStatus.innerText = `加载失败: ${error.message}`;
+            loaderStatus.innerText = `Loading failed: ${error.message}`;
             console.error(error);
         }
     }
