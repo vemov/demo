@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Loading CS 1.6...</title>
+    <style>
+        canvas {
+            width: 100vw;
+            height: 100vh;
+            top: 0;
+            left: 0;
+            position: fixed;
+            z-index: 1;
+        }
+
+        body {
+            margin: 0;
+            background-color: #111;
+            font-family: sans-serif;
+        }
+
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: #fff;
+            transition: opacity 0.5s ease;
+        }
+
+        .loader-title {
+            font-size: 24px;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+            color: #f5b041;
+        }
+
+        .loader-status {
+            font-size: 14px;
+            margin-bottom: 20px;
+            color: #aaa;
+        }
+
+        .progress-bar-container {
+            width: 300px;
+            height: 8px;
+            background-color: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #f5b041, #f39c12);
+            box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+            transition: width 0.1s ease;
+        }
+
+        .path-input-container {
+            display: flex;
+            gap: 10px;
+            z-index: 10000;
+        }
+
+        .path-input-container input {
+            width: 220px;
+            padding: 6px 10px;
+            border: 1px solid #444;
+            background: #222;
+            color: #fff;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .path-input-container button {
+            padding: 6px 12px;
+            background: #f39c12;
+            border: none;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .path-input-container button:hover {
+            background: #e67e22;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/xash3d-fwgs@latest/dist/raw.js"></script>
+</head>
+<body>
+
+<div id="loading-overlay">
+    <div class="loader-title">Xash3D WebAssembly</div>
+    <div id="loader-status" class="loader-status">请输入 valve.zip 的自定义路径：</div>
+    <div class="progress-bar-container" id="bar-container" style="display: none;">
+        <div id="progress-bar"></div>
+    </div>
+    <div class="path-input-container" id="input-container">
+        <input type="text" id="zip-path" value="./valve.zip">
+        <button id="start-btn">启动</button>
+    </div>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script type="module">
+    import JSZip from 'https://cdn.skypack.dev/jszip@3.10.1';
+
+    const progressBar = document.getElementById('progress-bar');
+    const loaderStatus = document.getElementById('loader-status');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const inputContainer = document.getElementById('input-container');
+    const barContainer = document.getElementById('bar-container');
+    const zipPathInput = document.getElementById('zip-path');
+    const startBtn = document.getElementById('start-btn');
+
+    function fetchWithProgress(url, onProgress) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.responseType = 'arraybuffer';
+
+            xhr.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    onProgress(event.loaded / event.total);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(xhr.response);
+                } else {
+                    reject(new Error(`Status code: ${xhr.status}`));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.send();
+        });
+    }
+
+    async function startLoading(zipUrl) {
+        inputContainer.style.display = 'none';
+        barContainer.style.display = 'block';
+        
+        const files = {};
+
+        try {
+            loaderStatus.innerText = "正在下载游戏核心资产...";
+            const zipArrayBuffer = await fetchWithProgress(zipUrl, (progress) => {
+                const totalProgress = Math.round(progress * 70);
+                progressBar.style.width = `${totalProgress}%`;
+                loaderStatus.innerText = `正在下载游戏核心资产: ${Math.round(progress * 100)}%`;
+            });
+
+            loaderStatus.innerText = "正在解析压缩包结构...";
+            const zip = await JSZip.loadAsync(zipArrayBuffer);
+            
+            const zipFiles = Object.keys(zip.files).filter(p => !zip.files[p].dir);
+            const totalFiles = zipFiles.length;
+            let processedFiles = 0;
+
+            loaderStatus.innerText = "正在解压并写入虚拟文件系统...";
+            
+            await Promise.all(zipFiles.map(async p => {
+                const file = zip.files[p];
+                const path = `/rodir/${p}`;
+                files[path] = await file.async("uint8array");
+                
+                processedFiles++;
+                const unzipProgress = processedFiles / totalFiles;
+                const totalProgress = 70 + Math.round(unzipProgress * 30);
+                
+                progressBar.style.width = `${totalProgress}%`;
+                loaderStatus.innerText = `正在解压资产文件 (${processedFiles}/${totalFiles})`;
+            }));
+
+            loaderStatus.innerText = "下载附加组件...";
+            const extras = await (await fetch('https://cdn.jsdelivr.net/npm/cs16-client@latest/dist/cstrike/extras.pk3')).arrayBuffer();
+
+            loaderStatus.innerText = "正在启动 Xash3D 引擎...";
+
+            Xash3D({
+                arguments: ['-windowed', '-game', 'cstrike', '+_vgui_menus', '0', '-ref', 'webgl2'],
+                canvas: document.getElementById('canvas'),
+                dynamicLibraries: [
+                    "filesystem_stdio.wasm",
+                    "libref_webgl2.wasm",
+                    "cl_dlls/menu_emscripten_wasm32.wasm",
+                    "dlls/cs_emscripten_wasm32.wasm",
+                    "cl_dlls/client_emscripten_wasm32.wasm",
+                    "/rodir/filesystem_stdio.wasm",
+                ],
+                onRuntimeInitialized: function () {
+                    Object.keys(files).forEach(k => {
+                        const dir = k.split('/').slice(0, -1).join('/');
+                        this.FS.mkdirTree(dir);
+                        this.FS.writeFile(k, files[k]);
+                    });
+                    this.FS.writeFile('/rodir/cstrike/extras.pk3', new Uint8Array(extras));
+                    this.FS.mkdir('/rwdir');
+                    this.FS.chdir('/rodir');
+
+                    loadingOverlay.style.opacity = 0;
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 500);
+                },
+                locateFile: (p) => {
+                    switch (p) {
+                        case 'xash.wasm':
+                            return 'https://cdn.jsdelivr.net/npm/xash3d-fwgs@latest/dist/xash.wasm';
+                        case '/rodir/filesystem_stdio.wasm':
+                        case 'filesystem_stdio.wasm':
+                            return 'https://cdn.jsdelivr.net/npm/xash3d-fwgs@latest/dist/filesystem_stdio.wasm';
+                        case 'libref_webgl2.wasm':
+                            return 'https://cdn.jsdelivr.net/npm/xash3d-fwgs@latest/dist/libref_webgl2.wasm';
+                        case 'cl_dlls/menu_emscripten_wasm32.wasm':
+                            return 'https://cdn.jsdelivr.net/npm/cs16-client@latest/dist/cstrike/cl_dlls/menu_emscripten_wasm32.wasm';
+                        case 'dlls/cs_emscripten_wasm32.wasm':
+                            return 'https://cdn.jsdelivr.net/npm/cs16-client@latest/dist/cstrike/dlls/cs_emscripten_wasm32.wasm';
+                        case 'cl_dlls/client_emscripten_wasm32.wasm':
+                            return 'https://cdn.jsdelivr.net/npm/cs16-client@latest/dist/cstrike/cl_dlls/client_emscripten_wasm32.wasm';
+                        default:
+                            return p;
+                    }
+                },
+            });
+
+        } catch (error) {
+            barContainer.style.display = 'none';
+            inputContainer.style.display = 'flex';
+            loaderStatus.style.color = '#ec7063';
+            loaderStatus.innerText = `加载失败: ${error.message}`;
+            console.error(error);
+        }
+    }
+
+    startBtn.addEventListener('click', () => {
+        const path = zipPathInput.value.trim();
+        if (path) {
+            startLoading(path);
+        }
+    });
+
+    zipPathInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const path = zipPathInput.value.trim();
+            if (path) {
+                startLoading(path);
+            }
+        }
+    });
+</script>
+</body>
+</html>
