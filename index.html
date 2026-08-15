@@ -1,266 +1,318 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-    <title>Loading CS 1.6...</title>
-    <style>
-        canvas {
-            width: 100vw;
-            height: 100vh;
-            top: 0;
-            left: 0;
-            position: fixed;
-            z-index: 1;
-        }
-
-        body {
-            margin: 0;
-            background-color: #111;
-            font-family: sans-serif;
-        }
-
-        #loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: #1a1a1a;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            color: #fff;
-            transition: opacity 0.5s ease;
-        }
-
-        .loader-title {
-            font-size: 24px;
-            margin-bottom: 5px;
-            letter-spacing: 1px;
-            color: #f5b041;
-        }
-
-        .loader-status {
-            font-size: 14px;
-            margin-bottom: 20px;
-            color: #aaa;
-        }
-
-        .progress-bar-container {
-            width: 300px;
-            height: 8px;
-            background-color: #333;
-            border-radius: 4px;
-            overflow: hidden;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
-            margin-bottom: 20px;
-        }
-
-        #progress-bar {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, #f5b041, #f39c12);
-            box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
-            transition: width 0.1s ease;
-        }
-
-        .path-input-container {
-            display: flex;
-            gap: 10px;
-            z-index: 10000;
-        }
-
-        .path-input-container input {
-            width: 220px;
-            padding: 6px 10px;
-            border: 1px solid #444;
-            background: #222;
-            color: #fff;
-            border-radius: 4px;
-            outline: none;
-        }
-
-        .path-input-container button {
-            padding: 6px 12px;
-            background: #f39c12;
-            border: none;
-            color: #fff;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .path-input-container button:hover {
-            background: #e67e22;
-        }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/xash3d-fwgs@latest/dist/raw.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;font-family:sans-serif}
+#viewport{width:100vw;height:100vh;overflow:hidden;position:relative}
+#game-area{width:2000px;height:1000px;position:relative;background-color:#f3e5f5}
+#game-canvas{display:block;background-color:#f3e5f5;background-image:url('./images/background.webp'),linear-gradient(#e1bee7 1px,transparent 1px),linear-gradient(90deg,#e1bee7 1px,transparent 1px);background-repeat:repeat,repeat,repeat;background-size:64px 64px,40px 40px,40px 40px;background-position:center;image-rendering:pixelated}
+#terminal-container{position:fixed;bottom:0;left:0;width:100%;height:30px;background:rgba(34,34,34,0.9);color:#fff;font-family:monospace;z-index:9999;display:flex;flex-direction:column;transition:height 0.3s ease}
+#terminal-container.expanded{height:180px}
+#terminal-header{padding:5px 10px;background:#333;cursor:pointer;display:flex;justify-content:space-between;flex-shrink:0}
+#terminal-body{flex:1;overflow-y:auto;padding:10px}
+#terminal-body::-webkit-scrollbar{width:8px}
+#terminal-body::-webkit-scrollbar-track{background:#111}
+#terminal-body::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
+#terminal-body::-webkit-scrollbar-thumb:hover{background:#777}
+</style>
 </head>
 <body>
-
-<div id="loading-overlay">
-    <div class="loader-title">Xash3D WebAssembly</div>
-    <div id="loader-status" class="loader-status">valve.zip：</div>
-    <div class="progress-bar-container" id="bar-container" style="display: none;">
-        <div id="progress-bar"></div>
-    </div>
-    <div class="path-input-container" id="input-container">
-        <input type="text" id="zip-path" value="https://cold-silence-567c.bengang904.workers.dev/?url=https://archive.org/download/valve_202605/valve.zip">
-        <button id="start-btn">Play</button>
-    </div>
+<div id="viewport">
+<div id="game-area">
+<canvas id="game-canvas" width="2000" height="1000"></canvas>
+<div id="tips-container"></div>
 </div>
+</div>
+<div id="terminal-container">
+<div id="terminal-header" onclick="document.getElementById('terminal-container').classList.toggle('expanded')">
+<span>日志终端 | 坐标: <span id="coords-val">X: 0, Y: 0</span></span>
+<span>[展开/收起]</span>
+</div>
+<div id="terminal-body"></div>
+</div>
+<script src="./virtual-controls.js" defer></script>
+<script>
+const viewport=document.getElementById('viewport'),gameArea=document.getElementById('game-area'),canvas=document.getElementById('game-canvas'),ctx=canvas.getContext('2d'),coordsVal=document.getElementById('coords-val'),logBody=document.getElementById('terminal-body'),tipsContainer=document.getElementById('tips-container');
+ctx.imageSmoothingEnabled = false;
 
-<canvas id="canvas"></canvas>
+const worldWidth=2000, worldHeight=1000, playerSize=120;
+let posX=worldWidth/2-playerSize/2,posY=worldHeight/2-playerSize/2,speed=5,keys=new Set(),isWalking=false,walkIdx=0,walkTimer=null;
+const moveKeys=new Set(['w','a','s','d']),walkFrames=['./images/walk/walk_0001.webp','./images/walk/walk_0002.webp'];
+let currentFrameMs=100,walkStartTime=0;
 
-<script type="module">
-    import JSZip from 'https://cdn.skypack.dev/jszip@3.10.1';
+const images = {};
+function loadImage(src) {
+    if(images[src]) return images[src];
+    const img = new Image();
+    img.src = src;
+    images[src] = img;
+    return img;
+}
 
-    const progressBar = document.getElementById('progress-bar');
-    const loaderStatus = document.getElementById('loader-status');
-    const loadingOverlay = document.getElementById('loading-overlay');
-    const inputContainer = document.getElementById('input-container');
-    const barContainer = document.getElementById('bar-container');
-    const zipPathInput = document.getElementById('zip-path');
-    const startBtn = document.getElementById('start-btn');
+loadImage('./images/player.webp');
+walkFrames.forEach(s=>loadImage(s));
 
-    function fetchWithProgress(url, onProgress) {
-        return new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', url, true);
-            xhr.responseType = 'arraybuffer';
+const furnitureData=[
+    {id:'方桌', cx:900, cy:400, w:200, h:120, src:'images/desk.webp', level:2, noCollision:false, colOffsetX1:-75, colOffsetX2:75, colOffsetY1:-25, colOffsetY2:-25},
+    {id:'盆栽', cx:900, cy:370, w:80, h:80, src:'images/plant.webp', level:1, noCollision:false, colOffsetX1:15, colOffsetX2:-5, colOffsetY1:15, colOffsetY2:-25},
+    {id:'方桌', cx:1120, cy:400, w:200, h:120, src:'images/desk.webp', level:2, noCollision:false, colOffsetX1:-75, colOffsetX2:75, colOffsetY1:-25, colOffsetY2:-25},
+    {id:'盆栽', cx:1300, cy:400, w:80, h:80, src:'images/plant.webp', level:1, noCollision:false, colOffsetX1:15, colOffsetX2:-5, colOffsetY1:-15, colOffsetY2:-25}
+];
 
-            xhr.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    onProgress(event.loaded / event.total);
-                }
-            };
+furnitureData.forEach(item => {
+    loadImage(item.src);
+    const tip = document.createElement('div');
+    tip.textContent = item.id;
+    tip.style.cssText = `position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,0)`;
+    tipsContainer.appendChild(tip);
+    item.tipElement = tip;
+});
 
-            xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(xhr.response);
-                } else {
-                    reject(new Error(`Status code: ${xhr.status}`));
-                }
-            };
+function getFurnitureRects(){
+    return furnitureData.filter(i => !i.noCollision).map(i=>{
+        const x1 = i.colOffsetX1 !== undefined ? i.colOffsetX1 : -i.w / 2;
+        const x2 = i.colOffsetX2 !== undefined ? i.colOffsetX2 : i.w / 2;
+        const y1 = i.colOffsetY1 !== undefined ? i.colOffsetY1 : -i.h / 2;
+        const y2 = i.colOffsetY2 !== undefined ? i.colOffsetY2 : i.h / 2;
+        return {
+            x: i.cx + x1,
+            y: i.cy + y1,
+            w: (i.cx + x2) - (i.cx + x1),
+            h: (i.cy + y2) - (i.cy + y1)
+        };
+    });
+}
 
-            xhr.onerror = () => reject(new Error('Network error'));
-            xhr.send();
-        });
+function log(msg){const d=document.createElement('div');d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;logBody.prepend(d)}
+function isMoving(){return keys.has('w')||keys.has('s')||keys.has('a')||keys.has('d')}
+function startWalk(){
+    if(isWalking) return;
+    isWalking = true;
+    walkIdx = 0;
+    walkStartTime = Date.now();
+    currentFrameMs = 100;
+    walkTimer = setInterval(nextFrame, currentFrameMs);
+    log('开始走路');
+}
+function nextFrame(){walkIdx=1-walkIdx;}
+function stopWalk(){
+    if(!isWalking)return;
+    const elapsed=Date.now()-walkStartTime;
+    if(elapsed<300){
+        setTimeout(stopWalk,300-elapsed);
+        return;
     }
+    isWalking=false;clearInterval(walkTimer);walkTimer=null;log('停止走路')
+}
 
-    async function startLoading(zipUrl) {
-        inputContainer.style.display = 'none';
-        barContainer.style.display = 'block';
-        
-        const files = {};
+window.addEventListener('keydown',e=>{
+    const k=e.key.toLowerCase();
+    if(!keys.has(k)){
+        keys.add(k);
+        log(`按下按键: ${e.key}`);
+        if(moveKeys.has(k)) startWalk();
+    }
+});
 
-        try {
-            loaderStatus.innerText = "Downloading game core assets...";
-            const zipArrayBuffer = await fetchWithProgress(zipUrl, (progress) => {
-                const totalProgress = Math.round(progress * 70);
-                progressBar.style.width = `${totalProgress}%`;
-                loaderStatus.innerText = `Downloading game core assets: ${Math.round(progress * 100)}%`;
-            });
+window.addEventListener('keyup',e=>{
+    const k=e.key.toLowerCase();
+    keys.delete(k);
+    if(moveKeys.has(k) && !isMoving()){
+        stopWalk();
+    }
+});
 
-            loaderStatus.innerText = "Parsing the compressed file structure...";
-            const zip = await JSZip.loadAsync(zipArrayBuffer);
-            
-            const zipFiles = Object.keys(zip.files).filter(p => !zip.files[p].dir);
-            const totalFiles = zipFiles.length;
-            let processedFiles = 0;
+window.addEventListener('blur',()=>{keys.clear();stopWalk();log('窗口失去焦点，已重置按键')});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();stopWalk()}});
 
-            loaderStatus.innerText = "Decompressing and writing to the virtual file system...";
-            
-            await Promise.all(zipFiles.map(async p => {
-                const file = zip.files[p];
-                const path = `/rodir/${p}`;
-                files[path] = await file.async("uint8array");
-                
-                processedFiles++;
-                const unzipProgress = processedFiles / totalFiles;
-                const totalProgress = 70 + Math.round(unzipProgress * 30);
-                
-                progressBar.style.width = `${totalProgress}%`;
-                loaderStatus.innerText = `Unzipping asset files (${processedFiles}/${totalFiles})`;
-            }));
+function checkCollision(x,y,w,h,rx,ry,rw,rh){return x<rx+rw&&x+w>rx&&y<ry+rh&&y+h>ry}
 
-            loaderStatus.innerText = "Download add-ons...";
-            const extras = await (await fetch('https://cdn.jsdelivr.net/npm/cs16-client@latest/dist/cstrike/extras.pk3')).arrayBuffer();
+function update(){
+    if(isWalking){const targetMs=100;if(targetMs!==currentFrameMs){currentFrameMs=targetMs;clearInterval(walkTimer);walkTimer=setInterval(nextFrame,currentFrameMs)}}
+    let nextX=posX,nextY=posY;
+    if(keys.has('w'))nextY-=speed;if(keys.has('s'))nextY+=speed;if(keys.has('a'))nextX-=speed;if(keys.has('d'))nextX+=speed;
+    const maxX=worldWidth-playerSize,maxY=worldHeight-playerSize;
+    nextX=Math.max(0,Math.min(maxX,nextX));nextY=Math.max(0,Math.min(maxY,nextY));
 
-            loaderStatus.innerText = "Starting the Xash3D engine...";
+    const leftX=0,rightX=0,upY=0,downY=0,pBoxW=playerSize-leftX-rightX,pBoxH=playerSize-upY-downY,rects=getFurnitureRects();
 
-            Xash3D({
-                arguments: ['-windowed', '-game', 'cstrike', '+_vgui_menus', '0', '-ref', 'webgl2'],
-                canvas: document.getElementById('canvas'),
-                dynamicLibraries: [
-                    "filesystem_stdio.wasm",
-                    "libref_webgl2.wasm",
-                    "cl_dlls/menu_emscripten_wasm32.wasm",
-                    "dlls/cs_emscripten_wasm32.wasm",
-                    "cl_dlls/client_emscripten_wasm32.wasm",
-                    "/rodir/filesystem_stdio.wasm",
-                ],
-                onRuntimeInitialized: function () {
-                    Object.keys(files).forEach(k => {
-                        const dir = k.split('/').slice(0, -1).join('/');
-                        this.FS.mkdirTree(dir);
-                        this.FS.writeFile(k, files[k]);
-                    });
-                    this.FS.writeFile('/rodir/cstrike/extras.pk3', new Uint8Array(extras));
-                    this.FS.mkdir('/rwdir');
-                    this.FS.chdir('/rodir');
+    let canMoveX=true,canMoveY=true;
+    for(const r of rects){if(checkCollision(nextX+leftX,posY+upY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveX=false;break}}
+    if(canMoveX)posX=nextX;
+    for(const r of rects){if(checkCollision(posX+leftX,nextY+upY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveY=false;break}}
+    if(canMoveY)posY=nextY;
 
-                    loadingOverlay.style.opacity = 0;
-                    setTimeout(() => {
-                        loadingOverlay.style.display = 'none';
-                    }, 500);
-                },
-                locateFile: (p) => {
-                    switch (p) {
-                        case 'xash.wasm':
-                            return 'https://cdn.jsdelivr.net/npm/xash3d-fwgs@latest/dist/xash.wasm';
-                        case '/rodir/filesystem_stdio.wasm':
-                        case 'filesystem_stdio.wasm':
-                            return 'https://cdn.jsdelivr.net/npm/xash3d-fwgs@latest/dist/filesystem_stdio.wasm';
-                        case 'libref_webgl2.wasm':
-                            return 'https://cdn.jsdelivr.net/npm/xash3d-fwgs@latest/dist/libref_webgl2.wasm';
-                        case 'cl_dlls/menu_emscripten_wasm32.wasm':
-                            return 'https://cdn.jsdelivr.net/npm/cs16-client@latest/dist/cstrike/cl_dlls/menu_emscripten_wasm32.wasm';
-                        case 'dlls/cs_emscripten_wasm32.wasm':
-                            return 'https://cdn.jsdelivr.net/npm/cs16-client@latest/dist/cstrike/dlls/cs_emscripten_wasm32.wasm';
-                        case 'cl_dlls/client_emscripten_wasm32.wasm':
-                            return 'https://cdn.jsdelivr.net/npm/cs16-client@latest/dist/cstrike/cl_dlls/client_emscripten_wasm32.wasm';
-                        default:
-                            return p;
-                    }
-                },
-            });
-
-        } catch (error) {
-            barContainer.style.display = 'none';
-            inputContainer.style.display = 'flex';
-            loaderStatus.style.color = '#ec7063';
-            loaderStatus.innerText = `Loading failed: ${error.message}`;
-            console.error(error);
+    let stuck=true,safety=0;
+    while(stuck&&safety<10){
+        stuck=false;
+        safety++;
+        for(const r of rects){
+            const pBox={x:posX+leftX,y:posY+upY,w:pBoxW,h:pBoxH};
+            if(checkCollision(pBox.x,pBox.y,pBox.w,pBox.h,r.x,r.y,r.w,r.h)){
+                stuck=true;
+                const overlapX=Math.min(pBox.x+pBox.w-r.x, r.x+r.w-pBox.x);
+                const overlapY=Math.min(pBox.y+pBox.h-r.y, r.y+r.h-pBox.y);
+                if(overlapX<overlapY){
+                    if(pBox.x+pBox.w/2 < r.x+r.w/2) posX-=overlapX;
+                    else posX+=overlapX;
+                }else{
+                    if(pBox.y+pBox.h/2 < r.y+r.h/2) posY-=overlapY;
+                    else posY+=overlapY;
+                }
+                posX=Math.max(0,Math.min(maxX,posX));
+                posY=Math.max(0,Math.min(maxY,posY));
+            }
         }
     }
 
-    startBtn.addEventListener('click', () => {
-        const path = zipPathInput.value.trim();
-        if (path) {
-            startLoading(path);
+    const currentPBox={x:posX+leftX,y:posY+upY,w:pBoxW,h:pBoxH},threshold=30;
+
+    furnitureData.forEach(item=>{
+        item.tipElement.style.display='none';
+        item.tipElement.textContent=item.id;
+    });
+
+    const activeItems = furnitureData.filter(item=>{
+        const rect={x:item.cx-item.w/2,y:item.cy-item.h/2,w:item.w,h:item.h},pRect={x:rect.x-threshold,y:rect.y-threshold,w:rect.w+2*threshold,h:rect.h+2*threshold};
+        return checkCollision(currentPBox.x,currentPBox.y,currentPBox.w,currentPBox.h,pRect.x,pRect.y,pRect.w,pRect.h);
+    });
+
+    const clusters = [];
+    activeItems.forEach(item=>{
+        let added = false;
+        for(const cluster of clusters){
+            const isClose = cluster.some(ci=>{
+                const dx = ci.cx - item.cx;
+                const dy = ci.cy - item.cy;
+                return Math.sqrt(dx*dx + dy*dy) < 180;
+            });
+            if(isClose){
+                cluster.push(item);
+                added = true;
+                break;
+            }
+        }
+        if(!added){
+            clusters.push([item]);
         }
     });
 
-    zipPathInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            const path = zipPathInput.value.trim();
-            if (path) {
-                startLoading(path);
+    clusters.forEach(cluster=>{
+        if(cluster.length === 1){
+            cluster[0].tipElement.textContent = cluster[0].id;
+            cluster[0].tipElement.style.left = cluster[0].cx + 'px';
+            cluster[0].tipElement.style.top = (cluster[0].cy - cluster[0].h/2 - 25) + 'px';
+            cluster[0].tipElement.style.display = 'block';
+        }else{
+            const combinedName = Array.from(new Set(cluster.map(i => i.id))).join('和');
+            const primary = cluster[0];
+            const avgCx = cluster.reduce((sum, i) => sum + i.cx, 0) / cluster.length;
+            const minTopY = Math.min(...cluster.map(i => i.cy - i.h/2));
+            primary.tipElement.textContent = combinedName;
+            primary.tipElement.style.left = avgCx + 'px';
+            primary.tipElement.style.top = (minTopY - 25) + 'px';
+            primary.tipElement.style.display = 'block';
+        }
+    });
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const renderList = [];
+    furnitureData.forEach((item, index) => {
+        renderList.push({
+            type: 'furniture',
+            data: item,
+            y: item.cy + item.h / 2,
+            level: item.level,
+            originalIndex: index,
+            noCollision: item.noCollision
+        });
+    });
+
+    const pBottom = currentPBox.y + currentPBox.h;
+    renderList.push({
+        type: 'player',
+        y: pBottom,
+        level: 0,
+        originalIndex: 9999,
+        noCollision: false
+    });
+
+    renderList.sort((a, b) => {
+        if (a.type === 'furniture' && b.type === 'furniture') {
+            if (a.level !== b.level) {
+                return b.level - a.level;
+            }
+        }
+        if (a.y !== b.y) {
+            return a.y - b.y;
+        }
+        if (a.type === 'player' && b.type === 'furniture') {
+            return -1;
+        }
+        if (a.type === 'furniture' && b.type === 'player') {
+            return 1;
+        }
+        return a.originalIndex - b.originalIndex;
+    });
+    renderList.forEach(item => {
+        if (item.type === 'furniture') {
+            const f = item.data;
+            const img = images[f.src];
+            if (img && img.complete && img.naturalWidth !== 0) {
+                ctx.drawImage(img, Math.round(f.cx - f.w/2), Math.round(f.cy - f.h/2), f.w, f.h);
+            } else {
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(Math.round(f.cx - f.w/2), Math.round(f.cy - f.h/2), f.w, f.h);
+            }
+        } else if (item.type === 'player') {
+            const playerImgSrc = isWalking ? walkFrames[walkIdx] : './images/player.webp';
+            const img = images[playerImgSrc];
+            if (img && img.complete && img.naturalWidth !== 0) {
+                ctx.drawImage(img, Math.round(posX), Math.round(posY), playerSize, playerSize);
+            } else {
+                ctx.fillStyle = '#8A2BE2';
+                ctx.fillRect(Math.round(posX), Math.round(posY), playerSize, playerSize);
             }
         }
     });
+    furnitureData.forEach(f => {
+        if (f.noCollision) {
+            const fRect = { x: f.cx - f.w/2, y: f.cy - f.h/2, w: f.w, h: f.h };
+            if (checkCollision(posX, posY, playerSize, playerSize, fRect.x, fRect.y, fRect.w, fRect.h)) {
+                const playerImgSrc = isWalking ? walkFrames[walkIdx] : 'player.webp';
+                const img = images[playerImgSrc];
+                if (img && img.complete && img.naturalWidth !== 0) {
+                    ctx.drawImage(img, Math.round(posX), Math.round(posY), playerSize, playerSize);
+                } else {
+                    ctx.fillStyle = '#8A2BE2';
+                    ctx.fillRect(Math.round(posX), Math.round(posY), playerSize, playerSize);
+                }
+            }
+        }
+    });
+
+    if(isMoving()){
+        if(!isWalking) startWalk();
+    }else{
+        if(isWalking) stopWalk();
+    }
+
+    coordsVal.textContent=`X: ${Math.round(posX)}, Y: ${Math.round(posY)}`;
+
+    viewport.scrollTo({
+        left: posX + playerSize/2 - window.innerWidth/2,
+        top: posY + playerSize/2 - window.innerHeight/2,
+        behavior: 'auto'
+    });
+
+    requestAnimationFrame(update);
+}
+update(); log('系统初始化完成');
 </script>
 </body>
 </html>
