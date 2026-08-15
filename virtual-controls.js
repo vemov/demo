@@ -25,7 +25,7 @@
         }
         #joystick_base {
             position: absolute;
-            bottom: 18px;
+            bottom: 60px; 
             left: 28px;
             width: 110px;
             height: 110px;
@@ -49,7 +49,7 @@
         }
         #action_buttons {
             position: absolute;
-            bottom: 16px;
+            bottom: 60px; 
             right: 24px;
             width: 155px;
             height: 155px;
