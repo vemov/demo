@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game webrtc</title>
+<title>Game</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none}
 html,body{width:100vw;height:100vh;overflow:hidden;font-family:sans-serif}
@@ -41,392 +41,775 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:sans-serif}
 #btn-confirm:hover{background:linear-gradient(to bottom,#6baae0,#4a8ac8)}
 #btn-cancel{background:linear-gradient(to bottom,#f5f5f5,#e0e0e0);color:#333}
 #btn-cancel:hover{background:linear-gradient(to bottom,#fff,#ebebeb)}
+
+/* ===== Loading screen ===== */
+#loading-screen{
+  position:fixed;inset:0;z-index:20000;
+  background:#1a1a2e;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:#eee;font-family:sans-serif;
+  transition:opacity .4s ease;
+}
+#loading-screen.hidden{opacity:0;pointer-events:none}
+#loading-title{font-size:22px;margin-bottom:28px;letter-spacing:2px}
+#loading-bar-wrap{
+  width:min(420px,80vw);height:18px;background:#333;
+  border-radius:9px;overflow:hidden;border:1px solid #555;
+}
+#loading-bar{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,#5b9bd5,#3a7ab8);
+  transition:width .15s ease;
+}
+#loading-text{margin-top:14px;font-size:14px;color:#aaa}
 </style>
 </head>
 <body>
+
+<!-- Loading overlay -->
+<div id="loading-screen">
+  <div id="loading-title">资源加载中</div>
+  <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+  <div id="loading-text">0%</div>
+</div>
+
 <div id="top-bar">
-<button id="btn-online">联机</button>
-<span id="online-status">未连接</span>
+  <button id="btn-online">联机</button>
+  <span id="online-status">未连接</span>
 </div>
+
 <div id="online-modal">
-<div class="modal-box">
-<div class="modal-header">
-<span>WebRTC连接</span>
-<button class="close-btn" id="btn-close-modal">×</button>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>WebRTC连接</span>
+      <button class="close-btn" id="btn-close-modal">×</button>
+    </div>
+    <div class="modal-body">
+      <label>信令服务器地址 (wss:// 或 ws://)</label>
+      <input type="text" id="input-wss" placeholder="wss://test.hefengcy.com">
+      <label>房间号</label>
+      <input type="text" id="input-room" placeholder="输入房间号">
+      <div class="row">
+        <label><input type="radio" name="mode" value="create"> 创建房间</label>
+        <label><input type="radio" name="mode" value="join" checked> 加入房间</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="btn-cancel">取消</button>
+      <button id="btn-confirm">确定</button>
+    </div>
+  </div>
 </div>
-<div class="modal-body">
-<label>信令服务器地址 (wss:// 或 ws://)</label>
-<input type="text" id="input-wss" placeholder="wss://test.hefengcy.com">
-<label>房间号</label>
-<input type="text" id="input-room" placeholder="输入房间号">
-<div class="row">
-<label><input type="radio" name="mode" value="create"> 创建房间</label>
-<label><input type="radio" name="mode" value="join" checked> 加入房间</label>
-</div>
-</div>
-<div class="modal-footer">
-<button id="btn-cancel">取消</button>
-<button id="btn-confirm">确定</button>
-</div>
-</div>
-</div>
+
 <div id="viewport">
-<div id="game-area">
-<canvas id="game-canvas" width="2000" height="1000"></canvas>
-<div id="tips-container"></div>
+  <div id="game-area">
+    <canvas id="game-canvas" width="2000" height="1000"></canvas>
+    <div id="tips-container"></div>
+  </div>
 </div>
-</div>
+
 <div id="terminal-container">
-<div id="terminal-header" onclick="document.getElementById('terminal-container').classList.toggle('expanded')">
-<span>日志终端 | 坐标: <span id="coords-val">X: 0, Y: 0</span></span>
-<span>[展开/收起]</span>
+  <div id="terminal-header" onclick="document.getElementById('terminal-container').classList.toggle('expanded')">
+    <span>日志终端 | 坐标: <span id="coords-val">X: 0, Y: 0</span></span>
+    <span>[展开/收起]</span>
+  </div>
+  <div id="terminal-body"></div>
 </div>
-<div id="terminal-body"></div>
-</div>
+
 <script src="./virtual-controls.js" defer></script>
 <script>
-const viewport=document.getElementById('viewport'),gameArea=document.getElementById('game-area'),canvas=document.getElementById('game-canvas'),ctx=canvas.getContext('2d'),coordsVal=document.getElementById('coords-val'),logBody=document.getElementById('terminal-body'),tipsContainer=document.getElementById('tips-container');
-ctx.imageSmoothingEnabled=false;
-const worldWidth=2000,worldHeight=1000,playerSize=120;
-let posX=800,posY=450,speed=5,keys=new Set(),isWalking=false,walkIdx=0,walkTimer=null,isSitting=false,currentFrameMs=100,walkStartTime=0,lastVTime=0;
-const moveKeys=new Set(['w','a','s','d']);
-let playerIdle='./images/player-z.webp';
-let playerSit='./images/player-z/sit/sit.webp';
-let walkFrames=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];
-let remoteIdle='./images/player-x.webp';
-let remoteSit='./images/player-x/sit/sit.webp';
-let remoteWalk=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
-const images={};
-function loadImage(src){if(images[src])return images[src];const img=new Image();img.src=src;images[src]=img;return img}
-function setPlayerAssets(role){
-if(role==='host'){
-playerIdle='./images/player-z.webp';
-playerSit='./images/player-z/sit/sit.webp';
-walkFrames=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];
-remoteIdle='./images/player-x.webp';
-remoteSit='./images/player-x/sit/sit.webp';
-remoteWalk=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
-}else{
-playerIdle='./images/player-x.webp';
-playerSit='./images/player-x/sit/sit.webp';
-walkFrames=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
-remoteIdle='./images/player-z.webp';
-remoteSit='./images/player-z/sit/sit.webp';
-remoteWalk=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];
-}
-[playerIdle,playerSit,...walkFrames,remoteIdle,remoteSit,...remoteWalk].forEach(loadImage);
-}
-[playerIdle,playerSit,...walkFrames,remoteIdle,remoteSit,...remoteWalk].forEach(loadImage);
-const carpetData=[{id:'地毯',cx:1000,cy:500,w:400,h:300,src:'images/carpet.webp',level:-1}];
-const furnitureData=[
-{id:'方桌',cx:900,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOffsetX1:-75,colOffsetX2:75,colOffsetY1:-25,colOffsetY2:-25,itemsOnTop:[{id:'盆栽',src:'images/plant.webp',w:80,h:80,offsetX:-30,offsetY:-50}]},
-{id:'方桌',cx:1120,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOffsetX1:-75,colOffsetX2:75,colOffsetY1:-25,colOffsetY2:-25,itemsOnTop:[]},
-{id:'盆栽',cx:1300,cy:400,w:80,h:80,src:'images/plant.webp',level:0,colOffsetX1:15,colOffsetX2:-5,colOffsetY1:-15,colOffsetY2:-25},
-{id:'椅子',cx:1450,cy:400,w:55,h:100,src:'images/chair.webp',level:0,colOffsetX1:15,colOffsetX2:-5,colOffsetY1:-15,colOffsetY2:-25}
+/* ============================================================
+   1. 全局变量 & 图片资源列表
+   ============================================================ */
+const viewport = document.getElementById('viewport');
+const gameArea = document.getElementById('game-area');
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const coordsVal = document.getElementById('coords-val');
+const logBody = document.getElementById('terminal-body');
+const tipsContainer = document.getElementById('tips-container');
+ctx.imageSmoothingEnabled = false;
+
+const worldWidth = 2000, worldHeight = 1000, playerSize = 120;
+let posX = 800, posY = 450, speed = 5;
+let keys = new Set(), isWalking = false, walkIdx = 0, walkTimer = null;
+let isSitting = false, currentFrameMs = 100, walkStartTime = 0, lastVTime = 0;
+const moveKeys = new Set(['w','a','s','d']);
+
+let playerIdle = './images/player-z.webp';
+let playerSit  = './images/player-z/sit/sit.webp';
+let walkFrames = ['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];
+let remoteIdle = './images/player-x.webp';
+let remoteSit  = './images/player-x/sit/sit.webp';
+let remoteWalk = ['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
+
+const images = {};
+
+/* 所有需要预加载的图片（包含背景） */
+const ALL_IMAGE_SRCS = [
+  './images/background.webp',
+  './images/player-z.webp',
+  './images/player-z/sit/sit.webp',
+  './images/player-z/walk/walk_0001.webp',
+  './images/player-z/walk/walk_0002.webp',
+  './images/player-x.webp',
+  './images/player-x/sit/sit.webp',
+  './images/player-x/walk/walk_0001.webp',
+  './images/player-x/walk/walk_0002.webp',
+  './images/carpet.webp',
+  './images/desk.webp',
+  './images/plant.webp',
+  './images/chair.webp'
 ];
-function createTip(item){const tip=document.createElement('div');tip.textContent=item.id;tip.style.cssText=`position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,0)`;tipsContainer.appendChild(tip);item.tipElement=tip}
-carpetData.forEach(item=>{loadImage(item.src);createTip(item)});
-furnitureData.forEach(item=>{loadImage(item.src);if(item.itemsOnTop)item.itemsOnTop.forEach(sub=>loadImage(sub.src));createTip(item)});
-function getFurnitureRects(){return furnitureData.map(i=>{const x1=i.colOffsetX1??-i.w/2,x2=i.colOffsetX2??i.w/2,y1=i.colOffsetY1??-i.h/2,y2=i.colOffsetY2??i.h/2;return{x:i.cx+x1,y:i.cy+y1,w:(i.cx+x2)-(i.cx+x1),h:(i.cy+y2)-(i.cy+y1)}})}
-function log(msg){const d=document.createElement('div');d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;logBody.prepend(d)}
-function isMoving(){return keys.has('w')||keys.has('s')||keys.has('a')||keys.has('d')}
-function startWalk(){if(isWalking||isSitting)return;isWalking=true;walkIdx=0;walkStartTime=Date.now();currentFrameMs=100;walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs);log('开始走路')}
-function stopWalk(){if(!isWalking)return;const elapsed=Date.now()-walkStartTime;if(elapsed<300){setTimeout(stopWalk,300-elapsed);return}isWalking=false;clearInterval(walkTimer);walkTimer=null;log('停止走路')}
-function getChair(){return furnitureData.find(i=>i.id==='椅子')}
-function isChairOccupied(){
-if(!remote.active||!remote.sitting)return false;
-const chair=getChair();
-if(!chair)return false;
-const dx=(remote.x+playerSize/2)-chair.cx;
-const dy=(remote.y+playerSize/2)-chair.cy;
-return Math.sqrt(dx*dx+dy*dy)<80;
+
+function loadImage(src) {
+  if (images[src]) return images[src];
+  const img = new Image();
+  img.src = src;
+  images[src] = img;
+  return img;
 }
-let remote={x:1100,y:450,sitting:false,walking:false,idx:0,active:false};
-window.addEventListener('keydown',e=>{
-const k=e.key.toLowerCase();
-if(k==='v'){
-const now=Date.now();
-if(now-lastVTime<400)return;
-lastVTime=now;
-const chair=getChair();
-if(isSitting){
-isSitting=false;
-if(chair){
-const candidates=[
-{x:chair.cx-playerSize/2,y:chair.cy+5},
-{x:chair.cx-playerSize/2-40,y:chair.cy+5},
-{x:chair.cx-playerSize/2+40,y:chair.cy+5},
-{x:chair.cx-playerSize/2,y:chair.cy+60}
+
+function setPlayerAssets(role) {
+  if (role === 'host') {
+    playerIdle = './images/player-z.webp';
+    playerSit  = './images/player-z/sit/sit.webp';
+    walkFrames = ['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];
+    remoteIdle = './images/player-x.webp';
+    remoteSit  = './images/player-x/sit/sit.webp';
+    remoteWalk = ['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
+  } else {
+    playerIdle = './images/player-x.webp';
+    playerSit  = './images/player-x/sit/sit.webp';
+    walkFrames = ['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
+    remoteIdle = './images/player-z.webp';
+    remoteSit  = './images/player-z/sit/sit.webp';
+    remoteWalk = ['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];
+  }
+  [playerIdle, playerSit, ...walkFrames, remoteIdle, remoteSit, ...remoteWalk].forEach(loadImage);
+}
+
+/* ============================================================
+   2. 预加载 + 进度条
+   ============================================================ */
+function preloadAllImages() {
+  return new Promise(resolve => {
+    const total = ALL_IMAGE_SRCS.length;
+    let loaded = 0;
+    const bar = document.getElementById('loading-bar');
+    const text = document.getElementById('loading-text');
+    const screen = document.getElementById('loading-screen');
+
+    function update() {
+      const pct = Math.round((loaded / total) * 100);
+      bar.style.width = pct + '%';
+      text.textContent = pct + '%  (' + loaded + '/' + total + ')';
+      if (loaded >= total) {
+        setTimeout(() => {
+          screen.classList.add('hidden');
+          setTimeout(() => screen.remove(), 450);
+          resolve();
+        }, 300);
+      }
+    }
+
+    ALL_IMAGE_SRCS.forEach(src => {
+      const img = new Image();
+      img.onload = img.onerror = () => {
+        images[src] = img;
+        loaded++;
+        update();
+      };
+      img.src = src;
+    });
+  });
+}
+
+/* ============================================================
+   3. 家具 / 地毯数据
+   ============================================================ */
+const carpetData = [
+  {id:'地毯', cx:1000, cy:500, w:400, h:300, src:'images/carpet.webp', level:-1}
 ];
-const rects=getFurnitureRects();
-let placed=false;
-for(const c of candidates){
-let hit=false;
-for(const r of rects){if(checkCollision(c.x,c.y,playerSize,playerSize,r.x,r.y,r.w,r.h)){hit=true;break}}
-if(!hit){posX=Math.max(0,Math.min(worldWidth-playerSize,c.x));posY=Math.max(0,Math.min(worldHeight-playerSize,c.y));placed=true;break}
-}
-if(!placed){posX=chair.cx-playerSize/2;posY=chair.cy+5}
-}
-log('站起');
-}else if(chair){
-if(isChairOccupied()){log('椅子已有人');return}
-const pCx=posX+playerSize/2,pBottom=posY+playerSize,dx=pCx-chair.cx,dy=(posY+playerSize/2)-chair.cy,dist=Math.sqrt(dx*dx+dy*dy);
-if(dist<110&&pBottom>chair.cy-10){isSitting=true;posX=chair.cx-playerSize/2;posY=chair.cy-100;keys.clear();stopWalk();log('坐下')}
-}
-return;
-}
-if(isSitting)return;
-if(!keys.has(k)){keys.add(k);log(`按下按键: ${e.key}`);if(moveKeys.has(k))startWalk()}
-});
-window.addEventListener('keyup',e=>{if(isSitting)return;const k=e.key.toLowerCase();keys.delete(k);if(moveKeys.has(k)&&!isMoving())stopWalk()});
-window.addEventListener('blur',()=>{keys.clear();stopWalk();log('窗口失去焦点，已重置按键')});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();stopWalk()}});
-function checkCollision(x,y,w,h,rx,ry,rw,rh){return x<rx+rw&&x+w>rx&&y<ry+rh&&y+h>ry}
-function update(){
-if(isWalking){const t=100;if(t!==currentFrameMs){currentFrameMs=t;clearInterval(walkTimer);walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs)}}
-if(isSitting){const chair=getChair();if(chair){posX=chair.cx-playerSize/2;posY=chair.cy-100}}
-else{
-let nextX=posX,nextY=posY;
-if(keys.has('w'))nextY-=speed;if(keys.has('s'))nextY+=speed;if(keys.has('a'))nextX-=speed;if(keys.has('d'))nextX+=speed;
-const maxX=worldWidth-playerSize,maxY=worldHeight-playerSize;
-nextX=Math.max(0,Math.min(maxX,nextX));nextY=Math.max(0,Math.min(maxY,nextY));
-const pBoxW=playerSize,pBoxH=playerSize,rects=getFurnitureRects();
-let canMoveX=true,canMoveY=true;
-for(const r of rects){if(checkCollision(nextX,posY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveX=false;break}}
-if(canMoveX)posX=nextX;
-for(const r of rects){if(checkCollision(posX,nextY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveY=false;break}}
-if(canMoveY)posY=nextY;
-let stuck=true,safety=0;
-while(stuck&&safety<10){
-stuck=false;safety++;
-for(const r of rects){
-const pBox={x:posX,y:posY,w:pBoxW,h:pBoxH};
-if(checkCollision(pBox.x,pBox.y,pBox.w,pBox.h,r.x,r.y,r.w,r.h)){
-stuck=true;
-const overlapX=Math.min(pBox.x+pBox.w-r.x,r.x+r.w-pBox.x),overlapY=Math.min(pBox.y+pBox.h-r.y,r.y+r.h-pBox.y);
-if(overlapX<overlapY){if(pBox.x+pBox.w/2<r.x+r.w/2)posX-=overlapX;else posX+=overlapX}
-else{if(pBox.y+pBox.h/2<r.y+r.h/2)posY-=overlapY;else posY+=overlapY}
-posX=Math.max(0,Math.min(maxX,posX));posY=Math.max(0,Math.min(maxY,posY));
-}
-}
-}
-}
-const currentPBox={x:posX,y:posY,w:playerSize,h:playerSize},threshold=30;
-carpetData.forEach(item=>{item.tipElement.style.display='none';item.tipElement.textContent=item.id;item.tipElement.style.color='#fff'});
-furnitureData.forEach(item=>{
-item.tipElement.style.display='none';item.tipElement.style.color='#fff';
-let displayName=item.id;
-if(item.itemsOnTop?.length){const topNames=item.itemsOnTop.map(s=>s.id).filter(Boolean);if(topNames.length)displayName+=' '+topNames.join(' ')}
-item.tipElement.textContent=displayName;
-});
-const allInteractives=[...carpetData,...furnitureData];
-const activeItems=allInteractives.filter(item=>{
-const rect={x:item.cx-item.w/2,y:item.cy-item.h/2,w:item.w,h:item.h};
-const pRect={x:rect.x-threshold,y:rect.y-threshold,w:rect.w+2*threshold,h:rect.h+2*threshold};
-return checkCollision(currentPBox.x,currentPBox.y,currentPBox.w,currentPBox.h,pRect.x,pRect.y,pRect.w,pRect.h);
-});
-const clusters=[];
-activeItems.forEach(item=>{
-let added=false;
-for(const cluster of clusters){
-if(cluster.some(ci=>{const dx=ci.cx-item.cx,dy=ci.cy-item.cy;return Math.sqrt(dx*dx+dy*dy)<180})){cluster.push(item);added=true;break}
-}
-if(!added)clusters.push([item]);
-});
-clusters.forEach(cluster=>{
-if(cluster.length===1){
-cluster[0].tipElement.style.left=cluster[0].cx+'px';
-cluster[0].tipElement.style.top=(cluster[0].cy-cluster[0].h/2-25)+'px';
-cluster[0].tipElement.style.display='block';
-}else{
-const maxLevel=Math.max(...cluster.map(i=>i.level));
-const topItems=cluster.filter(i=>i.level===maxLevel);
-const combinedName=Array.from(new Set(topItems.flatMap(i=>{
-let names=[i.id];if(i.itemsOnTop)i.itemsOnTop.forEach(sub=>{if(sub.id)names.push(sub.id)});return names;
-}))).join(' ');
-const primary=topItems[0];
-const avgCx=topItems.reduce((s,i)=>s+i.cx,0)/topItems.length;
-const minTopY=Math.min(...topItems.map(i=>i.cy-i.h/2));
-primary.tipElement.textContent=combinedName;
-primary.tipElement.style.left=avgCx+'px';
-primary.tipElement.style.top=(minTopY-25)+'px';
-primary.tipElement.style.display='block';
-}
-});
-const chair=getChair();
-if(chair?.tipElement){
-const pCx=posX+playerSize/2,pBottom=posY+playerSize,dx=pCx-chair.cx,dy=(posY+playerSize/2)-chair.cy,dist=Math.sqrt(dx*dx+dy*dy);
-const nearBottom=!isSitting&&dist<110&&pBottom>chair.cy-10;
-if(isSitting||nearBottom){
-chair.tipElement.textContent=isSitting?'V 键站起':(isChairOccupied()?'椅子已有人':'V 键坐下');
-chair.tipElement.style.color=isChairOccupied()&&!isSitting?'#ff8a80':'#ffeb3b';
-chair.tipElement.style.left=chair.cx+'px';
-chair.tipElement.style.top=(chair.cy-chair.h/2-25)+'px';
-chair.tipElement.style.display='block';
-}
-}
-ctx.clearRect(0,0,canvas.width,canvas.height);
-const renderList=[];
-carpetData.forEach((item,i)=>renderList.push({type:'carpet',data:item,y:item.cy+item.h/2,level:item.level,originalIndex:i}));
-furnitureData.forEach((item,i)=>renderList.push({type:'furniture',data:item,y:item.cy+item.h/2,level:item.level,originalIndex:i}));
-const chairBottom=chair?(chair.cy+chair.h/2):0;
-const pBottom=isSitting?chairBottom:(currentPBox.y+currentPBox.h);
-renderList.push({type:'player',y:pBottom,level:0,originalIndex:9999});
-if(remote.active){
-const rBottom=remote.sitting?chairBottom:(remote.y+playerSize);
-renderList.push({type:'remote',y:rBottom,level:0,originalIndex:9998});
-}
-renderList.sort((a,b)=>{
-if(a.level!==b.level)return a.level-b.level;
-if(a.y!==b.y)return a.y-b.y;
-if(a.type==='player'&&b.type!=='player')return 1;
-if(a.type!=='player'&&b.type==='player')return -1;
-return a.originalIndex-b.originalIndex;
-});
-renderList.forEach(item=>{
-if(item.type==='carpet'){
-const c=item.data,img=images[c.src];
-if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h);
-else{ctx.fillStyle='#d7ccc8';ctx.fillRect(Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h)}
-}else if(item.type==='furniture'){
-const f=item.data,img=images[f.src];
-if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h);
-else{ctx.fillStyle='#8B4513';ctx.fillRect(Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h)}
-if(f.itemsOnTop)f.itemsOnTop.forEach(sub=>{
-const subImg=images[sub.src],subX=f.cx+(sub.offsetX||0)-sub.w/2,subY=f.cy+(sub.offsetY||0)-sub.h/2;
-if(subImg?.complete&&subImg.naturalWidth)ctx.drawImage(subImg,Math.round(subX),Math.round(subY),sub.w,sub.h);
-else{ctx.fillStyle='#555';ctx.fillRect(Math.round(subX),Math.round(subY),sub.w,sub.h)}
-});
-}else if(item.type==='player'){
-const src=isSitting?playerSit:(isWalking?walkFrames[walkIdx]:playerIdle);
-const img=images[src];
-if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(posX),Math.round(posY),playerSize,playerSize);
-else{ctx.fillStyle='#8A2BE2';ctx.fillRect(Math.round(posX),Math.round(posY),playerSize,playerSize)}
-}else if(item.type==='remote'){
-const src=remote.sitting?remoteSit:(remote.walking?remoteWalk[remote.idx%remoteWalk.length]:remoteIdle);
-const img=images[src];
-if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(remote.x),Math.round(remote.y),playerSize,playerSize);
-else{ctx.fillStyle='#e91e63';ctx.fillRect(Math.round(remote.x),Math.round(remote.y),playerSize,playerSize)}
-}
-});
-if(!isSitting){if(isMoving()){if(!isWalking)startWalk()}else if(isWalking)stopWalk()}
-coordsVal.textContent=`X: ${Math.round(posX)}, Y: ${Math.round(posY)}`;
-viewport.scrollTo({left:posX+playerSize/2-window.innerWidth/2,top:posY+playerSize/2-window.innerHeight/2,behavior:'auto'});
-requestAnimationFrame(update);
-}
-update();log('系统初始化完成');
+const furnitureData = [
+  {id:'方桌', cx:900, cy:400, w:200, h:120, src:'images/desk.webp', level:0,
+   colOffsetX1:-75, colOffsetX2:75, colOffsetY1:-25, colOffsetY2:-25,
+   itemsOnTop:[{id:'盆栽', src:'images/plant.webp', w:80, h:80, offsetX:-30, offsetY:-50}]},
+  {id:'方桌', cx:1120, cy:400, w:200, h:120, src:'images/desk.webp', level:0,
+   colOffsetX1:-75, colOffsetX2:75, colOffsetY1:-25, colOffsetY2:-25, itemsOnTop:[]},
+  {id:'盆栽', cx:1300, cy:400, w:80, h:80, src:'images/plant.webp', level:0,
+   colOffsetX1:15, colOffsetX2:-5, colOffsetY1:-15, colOffsetY2:-25},
+  {id:'椅子', cx:1450, cy:400, w:55, h:100, src:'images/chair.webp', level:0,
+   colOffsetX1:15, colOffsetX2:-5, colOffsetY1:-15, colOffsetY2:-25}
+];
 
-const btnOnline=document.getElementById('btn-online');
-const onlineModal=document.getElementById('online-modal');
-const btnConfirm=document.getElementById('btn-confirm');
-const btnCancel=document.getElementById('btn-cancel');
-const btnCloseModal=document.getElementById('btn-close-modal');
-const onlineStatus=document.getElementById('online-status');
-const inputWss=document.getElementById('input-wss');
-let ws=null,pc=null,dc=null,myRole=null;
+function createTip(item) {
+  const tip = document.createElement('div');
+  tip.textContent = item.id;
+  tip.style.cssText = `position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,0)`;
+  tipsContainer.appendChild(tip);
+  item.tipElement = tip;
+}
+carpetData.forEach(item => { loadImage(item.src); createTip(item); });
+furnitureData.forEach(item => {
+  loadImage(item.src);
+  if (item.itemsOnTop) item.itemsOnTop.forEach(sub => loadImage(sub.src));
+  createTip(item);
+});
 
-const savedWss=localStorage.getItem('game_wss_url');
-inputWss.value=savedWss||'wss://test.hefengcy.com';
+function getFurnitureRects() {
+  return furnitureData.map(i => {
+    const x1 = i.colOffsetX1 ?? -i.w/2, x2 = i.colOffsetX2 ?? i.w/2;
+    const y1 = i.colOffsetY1 ?? -i.h/2, y2 = i.colOffsetY2 ?? i.h/2;
+    return {x: i.cx+x1, y: i.cy+y1, w: (i.cx+x2)-(i.cx+x1), h: (i.cy+y2)-(i.cy+y1)};
+  });
+}
 
-btnOnline.onclick=()=>onlineModal.classList.add('show');
-btnCancel.onclick=btnCloseModal.onclick=()=>onlineModal.classList.remove('show');
+/* ============================================================
+   4. 日志 & 走路状态机
+   ============================================================ */
+function log(msg) {
+  const d = document.createElement('div');
+  d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logBody.prepend(d);
+}
 
-btnConfirm.onclick=()=>{
-const wssUrl=inputWss.value.trim();
-const room=document.getElementById('input-room').value.trim();
-const mode=document.querySelector('input[name=mode]:checked').value;
-if(!wssUrl||!room){alert('请填写服务器地址和房间号');return}
-localStorage.setItem('game_wss_url',wssUrl);
-onlineModal.classList.remove('show');
-connectSignaling(wssUrl,room,mode);
+function isMoving() {
+  return keys.has('w') || keys.has('s') || keys.has('a') || keys.has('d');
+}
+function startWalk() {
+  if (isWalking || isSitting) return;
+  isWalking = true; walkIdx = 0; walkStartTime = Date.now(); currentFrameMs = 100;
+  walkTimer = setInterval(() => walkIdx = 1 - walkIdx, currentFrameMs);
+  log('开始走路');
+}
+function stopWalk() {
+  if (!isWalking) return;
+  const elapsed = Date.now() - walkStartTime;
+  if (elapsed < 300) { setTimeout(stopWalk, 300 - elapsed); return; }
+  isWalking = false; clearInterval(walkTimer); walkTimer = null;
+  log('停止走路');
+}
+
+function getChair() { return furnitureData.find(i => i.id === '椅子'); }
+function isChairOccupied() {
+  if (!remote.active || !remote.sitting) return false;
+  const chair = getChair();
+  if (!chair) return false;
+  const dx = (remote.x + playerSize/2) - chair.cx;
+  const dy = (remote.y + playerSize/2) - chair.cy;
+  return Math.sqrt(dx*dx + dy*dy) < 80;
+}
+
+/* 远程玩家状态 */
+let remote = { x: 1100, y: 450, sitting: false, walking: false, idx: 0, active: false };
+let lastRemoteLog = 0; // 控制终端刷新频率
+
+/* ============================================================
+   5. 键盘输入
+   ============================================================ */
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'v') {
+    const now = Date.now();
+    if (now - lastVTime < 400) return;
+    lastVTime = now;
+    const chair = getChair();
+    if (isSitting) {
+      isSitting = false;
+      if (chair) {
+        const candidates = [
+          {x: chair.cx - playerSize/2, y: chair.cy + 5},
+          {x: chair.cx - playerSize/2 - 40, y: chair.cy + 5},
+          {x: chair.cx - playerSize/2 + 40, y: chair.cy + 5},
+          {x: chair.cx - playerSize/2, y: chair.cy + 60}
+        ];
+        const rects = getFurnitureRects();
+        let placed = false;
+        for (const c of candidates) {
+          let hit = false;
+          for (const r of rects) {
+            if (checkCollision(c.x, c.y, playerSize, playerSize, r.x, r.y, r.w, r.h)) { hit = true; break; }
+          }
+          if (!hit) {
+            posX = Math.max(0, Math.min(worldWidth - playerSize, c.x));
+            posY = Math.max(0, Math.min(worldHeight - playerSize, c.y));
+            placed = true; break;
+          }
+        }
+        if (!placed) { posX = chair.cx - playerSize/2; posY = chair.cy + 5; }
+      }
+      log('站起');
+    } else if (chair) {
+      if (isChairOccupied()) { log('椅子已有人'); return; }
+      const pCx = posX + playerSize/2, pBottom = posY + playerSize;
+      const dx = pCx - chair.cx, dy = (posY + playerSize/2) - chair.cy;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 110 && pBottom > chair.cy - 10) {
+        isSitting = true;
+        posX = chair.cx - playerSize/2;
+        posY = chair.cy - 100;
+        keys.clear(); stopWalk();
+        log('坐下');
+      }
+    }
+    return;
+  }
+  if (isSitting) return;
+  if (!keys.has(k)) {
+    keys.add(k);
+    log(`按下按键: ${e.key}`);
+    if (moveKeys.has(k)) startWalk();
+  }
+});
+
+window.addEventListener('keyup', e => {
+  if (isSitting) return;
+  const k = e.key.toLowerCase();
+  keys.delete(k);
+  if (moveKeys.has(k) && !isMoving()) stopWalk();
+});
+window.addEventListener('blur', () => { keys.clear(); stopWalk(); log('窗口失去焦点，已重置按键'); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { keys.clear(); stopWalk(); }
+});
+
+function checkCollision(x, y, w, h, rx, ry, rw, rh) {
+  return x < rx + rw && x + w > rx && y < ry + rh && y + h > ry;
+}
+
+/* ============================================================
+   6. 主循环 (update)
+   ============================================================ */
+function update() {
+  if (isWalking) {
+    const t = 100;
+    if (t !== currentFrameMs) {
+      currentFrameMs = t;
+      clearInterval(walkTimer);
+      walkTimer = setInterval(() => walkIdx = 1 - walkIdx, currentFrameMs);
+    }
+  }
+  if (isSitting) {
+    const chair = getChair();
+    if (chair) { posX = chair.cx - playerSize/2; posY = chair.cy - 100; }
+  } else {
+    let nextX = posX, nextY = posY;
+    if (keys.has('w')) nextY -= speed;
+    if (keys.has('s')) nextY += speed;
+    if (keys.has('a')) nextX -= speed;
+    if (keys.has('d')) nextX += speed;
+    const maxX = worldWidth - playerSize, maxY = worldHeight - playerSize;
+    nextX = Math.max(0, Math.min(maxX, nextX));
+    nextY = Math.max(0, Math.min(maxY, nextY));
+    const pBoxW = playerSize, pBoxH = playerSize, rects = getFurnitureRects();
+    let canMoveX = true, canMoveY = true;
+    for (const r of rects) {
+      if (checkCollision(nextX, posY, pBoxW, pBoxH, r.x, r.y, r.w, r.h)) { canMoveX = false; break; }
+    }
+    if (canMoveX) posX = nextX;
+    for (const r of rects) {
+      if (checkCollision(posX, nextY, pBoxW, pBoxH, r.x, r.y, r.w, r.h)) { canMoveY = false; break; }
+    }
+    if (canMoveY) posY = nextY;
+
+    let stuck = true, safety = 0;
+    while (stuck && safety < 10) {
+      stuck = false; safety++;
+      for (const r of rects) {
+        const pBox = {x: posX, y: posY, w: pBoxW, h: pBoxH};
+        if (checkCollision(pBox.x, pBox.y, pBox.w, pBox.h, r.x, r.y, r.w, r.h)) {
+          stuck = true;
+          const overlapX = Math.min(pBox.x + pBox.w - r.x, r.x + r.w - pBox.x);
+          const overlapY = Math.min(pBox.y + pBox.h - r.y, r.y + r.h - pBox.y);
+          if (overlapX < overlapY) {
+            if (pBox.x + pBox.w/2 < r.x + r.w/2) posX -= overlapX; else posX += overlapX;
+          } else {
+            if (pBox.y + pBox.h/2 < r.y + r.h/2) posY -= overlapY; else posY += overlapY;
+          }
+          posX = Math.max(0, Math.min(maxX, posX));
+          posY = Math.max(0, Math.min(maxY, posY));
+        }
+      }
+    }
+  }
+
+  /* 提示文字 */
+  const currentPBox = {x: posX, y: posY, w: playerSize, h: playerSize}, threshold = 30;
+  carpetData.forEach(item => {
+    item.tipElement.style.display = 'none';
+    item.tipElement.textContent = item.id;
+    item.tipElement.style.color = '#fff';
+  });
+  furnitureData.forEach(item => {
+    item.tipElement.style.display = 'none';
+    item.tipElement.style.color = '#fff';
+    let displayName = item.id;
+    if (item.itemsOnTop?.length) {
+      const topNames = item.itemsOnTop.map(s => s.id).filter(Boolean);
+      if (topNames.length) displayName += ' ' + topNames.join(' ');
+    }
+    item.tipElement.textContent = displayName;
+  });
+
+  const allInteractives = [...carpetData, ...furnitureData];
+  const activeItems = allInteractives.filter(item => {
+    const rect = {x: item.cx - item.w/2, y: item.cy - item.h/2, w: item.w, h: item.h};
+    const pRect = {x: rect.x - threshold, y: rect.y - threshold, w: rect.w + 2*threshold, h: rect.h + 2*threshold};
+    return checkCollision(currentPBox.x, currentPBox.y, currentPBox.w, currentPBox.h, pRect.x, pRect.y, pRect.w, pRect.h);
+  });
+
+  const clusters = [];
+  activeItems.forEach(item => {
+    let added = false;
+    for (const cluster of clusters) {
+      if (cluster.some(ci => {
+        const dx = ci.cx - item.cx, dy = ci.cy - item.cy;
+        return Math.sqrt(dx*dx + dy*dy) < 180;
+      })) { cluster.push(item); added = true; break; }
+    }
+    if (!added) clusters.push([item]);
+  });
+
+  clusters.forEach(cluster => {
+    if (cluster.length === 1) {
+      cluster[0].tipElement.style.left = cluster[0].cx + 'px';
+      cluster[0].tipElement.style.top = (cluster[0].cy - cluster[0].h/2 - 25) + 'px';
+      cluster[0].tipElement.style.display = 'block';
+    } else {
+      const maxLevel = Math.max(...cluster.map(i => i.level));
+      const topItems = cluster.filter(i => i.level === maxLevel);
+      const combinedName = Array.from(new Set(topItems.flatMap(i => {
+        let names = [i.id];
+        if (i.itemsOnTop) i.itemsOnTop.forEach(sub => { if (sub.id) names.push(sub.id); });
+        return names;
+      }))).join(' ');
+      const primary = topItems[0];
+      const avgCx = topItems.reduce((s, i) => s + i.cx, 0) / topItems.length;
+      const minTopY = Math.min(...topItems.map(i => i.cy - i.h/2));
+      primary.tipElement.textContent = combinedName;
+      primary.tipElement.style.left = avgCx + 'px';
+      primary.tipElement.style.top = (minTopY - 25) + 'px';
+      primary.tipElement.style.display = 'block';
+    }
+  });
+
+  const chair = getChair();
+  if (chair?.tipElement) {
+    const pCx = posX + playerSize/2, pBottom = posY + playerSize;
+    const dx = pCx - chair.cx, dy = (posY + playerSize/2) - chair.cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const nearBottom = !isSitting && dist < 110 && pBottom > chair.cy - 10;
+    if (isSitting || nearBottom) {
+      chair.tipElement.textContent = isSitting ? 'V 键站起' : (isChairOccupied() ? '椅子已有人' : 'V 键坐下');
+      chair.tipElement.style.color = isChairOccupied() && !isSitting ? '#ff8a80' : '#ffeb3b';
+      chair.tipElement.style.left = chair.cx + 'px';
+      chair.tipElement.style.top = (chair.cy - chair.h/2 - 25) + 'px';
+      chair.tipElement.style.display = 'block';
+    }
+  }
+
+  /* 渲染 */
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const renderList = [];
+  carpetData.forEach((item, i) => renderList.push({type:'carpet', data:item, y:item.cy+item.h/2, level:item.level, originalIndex:i}));
+  furnitureData.forEach((item, i) => renderList.push({type:'furniture', data:item, y:item.cy+item.h/2, level:item.level, originalIndex:i}));
+
+  const chairBottom = chair ? (chair.cy + chair.h/2) : 0;
+  const pBottom = isSitting ? chairBottom : (currentPBox.y + currentPBox.h);
+  renderList.push({type:'player', y:pBottom, level:0, originalIndex:9999});
+
+  if (remote.active) {
+    const rBottom = remote.sitting ? chairBottom : (remote.y + playerSize);
+    renderList.push({type:'remote', y:rBottom, level:0, originalIndex:9998});
+  }
+
+  renderList.sort((a, b) => {
+    if (a.level !== b.level) return a.level - b.level;
+    if (a.y !== b.y) return a.y - b.y;
+    if (a.type === 'player' && b.type !== 'player') return 1;
+    if (a.type !== 'player' && b.type === 'player') return -1;
+    return a.originalIndex - b.originalIndex;
+  });
+
+  renderList.forEach(item => {
+    if (item.type === 'carpet') {
+      const c = item.data, img = images[c.src];
+      if (img?.complete && img.naturalWidth) ctx.drawImage(img, Math.round(c.cx - c.w/2), Math.round(c.cy - c.h/2), c.w, c.h);
+      else { ctx.fillStyle = '#d7ccc8'; ctx.fillRect(Math.round(c.cx - c.w/2), Math.round(c.cy - c.h/2), c.w, c.h); }
+    } else if (item.type === 'furniture') {
+      const f = item.data, img = images[f.src];
+      if (img?.complete && img.naturalWidth) ctx.drawImage(img, Math.round(f.cx - f.w/2), Math.round(f.cy - f.h/2), f.w, f.h);
+      else { ctx.fillStyle = '#8B4513'; ctx.fillRect(Math.round(f.cx - f.w/2), Math.round(f.cy - f.h/2), f.w, f.h); }
+      if (f.itemsOnTop) f.itemsOnTop.forEach(sub => {
+        const subImg = images[sub.src];
+        const subX = f.cx + (sub.offsetX || 0) - sub.w/2;
+        const subY = f.cy + (sub.offsetY || 0) - sub.h/2;
+        if (subImg?.complete && subImg.naturalWidth) ctx.drawImage(subImg, Math.round(subX), Math.round(subY), sub.w, sub.h);
+        else { ctx.fillStyle = '#555'; ctx.fillRect(Math.round(subX), Math.round(subY), sub.w, sub.h); }
+      });
+    } else if (item.type === 'player') {
+      const src = isSitting ? playerSit : (isWalking ? walkFrames[walkIdx] : playerIdle);
+      const img = images[src];
+      if (img?.complete && img.naturalWidth) ctx.drawImage(img, Math.round(posX), Math.round(posY), playerSize, playerSize);
+      else { ctx.fillStyle = '#8A2BE2'; ctx.fillRect(Math.round(posX), Math.round(posY), playerSize, playerSize); }
+    } else if (item.type === 'remote') {
+      const src = remote.sitting ? remoteSit : (remote.walking ? remoteWalk[remote.idx % remoteWalk.length] : remoteIdle);
+      const img = images[src];
+      if (img?.complete && img.naturalWidth) ctx.drawImage(img, Math.round(remote.x), Math.round(remote.y), playerSize, playerSize);
+      else { ctx.fillStyle = '#e91e63'; ctx.fillRect(Math.round(remote.x), Math.round(remote.y), playerSize, playerSize); }
+    }
+  });
+
+  if (!isSitting) {
+    if (isMoving()) { if (!isWalking) startWalk(); }
+    else if (isWalking) stopWalk();
+  }
+  coordsVal.textContent = `X: ${Math.round(posX)}, Y: ${Math.round(posY)}`;
+  viewport.scrollTo({
+    left: posX + playerSize/2 - window.innerWidth/2,
+    top:  posY + playerSize/2 - window.innerHeight/2,
+    behavior: 'auto'
+  });
+  requestAnimationFrame(update);
+}
+
+/* ============================================================
+   7. WebRTC 联机
+   ============================================================ */
+const btnOnline = document.getElementById('btn-online');
+const onlineModal = document.getElementById('online-modal');
+const btnConfirm = document.getElementById('btn-confirm');
+const btnCancel = document.getElementById('btn-cancel');
+const btnCloseModal = document.getElementById('btn-close-modal');
+const onlineStatus = document.getElementById('online-status');
+const inputWss = document.getElementById('input-wss');
+
+let ws = null, pc = null, dc = null, myRole = null, currentRoom = '', offerHandled = false, iceSendQueue = [];
+
+const savedWss = localStorage.getItem('game_wss_url');
+inputWss.value = savedWss || 'wss://test.hefengcy.com';
+
+btnOnline.onclick = () => onlineModal.classList.add('show');
+btnCancel.onclick = btnCloseModal.onclick = () => onlineModal.classList.remove('show');
+
+btnConfirm.onclick = () => {
+  const wssUrl = inputWss.value.trim();
+  const room = document.getElementById('input-room').value.trim();
+  const mode = document.querySelector('input[name=mode]:checked').value;
+  if (!wssUrl || !room) { alert('请填写服务器地址和房间号'); return; }
+  localStorage.setItem('game_wss_url', wssUrl);
+  onlineModal.classList.remove('show');
+  connectSignaling(wssUrl, room, mode);
 };
 
-function connectSignaling(url,room,mode){
-if(ws){ws.close();ws=null}
-onlineStatus.textContent='连接中...';
-ws=new WebSocket(url);
-ws.onopen=()=>{
-log('信令已连接');
-if(mode==='create'){
-ws.send(JSON.stringify({type:'create',room}));
-myRole='host';
-setPlayerAssets('host');
-posX=800;posY=450;
-}else{
-ws.send(JSON.stringify({type:'join',room}));
-myRole='join';
-setPlayerAssets('join');
-posX=1100;posY=450;
-}
-};
-ws.onmessage=(ev)=>{
-let msg;try{msg=JSON.parse(ev.data)}catch{return}
-if(msg.type==='room-created'){
-log('房间创建成功，等待加入...');
-onlineStatus.textContent='房间 '+room+' 已创建，等待加入...';
-initWebRTC(true);
-}
-if(msg.type==='joined'){
-log('成功加入房间');
-onlineStatus.textContent='已加入房间 '+room;
-initWebRTC(false);
-}
-if(msg.type==='error'){log('错误: '+msg.message);onlineStatus.textContent='错误: '+msg.message}
-if(msg.type==='offer'||msg.type==='answer'||msg.type==='candidate')handleSignal(msg);
-if(msg.type==='peer-left'){log('对方已离开');remote.active=false;onlineStatus.textContent+=' (对方离开)'}
-};
-ws.onclose=()=>{onlineStatus.textContent='已断开';log('信令断开');remote.active=false};
-ws.onerror=()=>{onlineStatus.textContent='连接失败';log('信令连接失败')};
+function sendSignal(obj) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
 }
 
-function initWebRTC(isHost){
-pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-pc.onicecandidate=(e)=>{if(e.candidate&&ws?.readyState===1)ws.send(JSON.stringify({type:'candidate',candidate:e.candidate}))};
-pc.ondatachannel=(e)=>{dc=e.channel;setupDC()};
-if(isHost){
-dc=pc.createDataChannel('game');
-setupDC();
-pc.createOffer().then(offer=>{pc.setLocalDescription(offer);ws.send(JSON.stringify({type:'offer',sdp:offer}))});
-}
+function connectSignaling(url, room, mode) {
+  if (ws) { try { ws.close(); } catch {} ws = null; }
+  if (pc) { try { pc.close(); } catch {} pc = null; }
+  dc = null; offerHandled = false; iceSendQueue = [];
+  currentRoom = room;
+  onlineStatus.textContent = '连接中...';
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    log('信令已连接');
+    if (mode === 'create') {
+      ws.send(JSON.stringify({type:'create', room}));
+      myRole = 'host';
+      setPlayerAssets('host');
+      posX = 800; posY = 450;
+    } else {
+      ws.send(JSON.stringify({type:'join', room}));
+      myRole = 'join';
+      setPlayerAssets('join');
+      posX = 1100; posY = 450;
+    }
+  };
+
+  ws.onmessage = async (ev) => {
+    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+
+    if (msg.type === 'room-created') {
+      log('房间创建成功，等待加入...');
+      onlineStatus.textContent = '房间 ' + room + ' 已创建，等待加入...';
+      initWebRTC(true);
+    }
+    if (msg.type === 'joined') {
+      log('成功加入房间');
+      onlineStatus.textContent = '已加入房间 ' + room;
+      initWebRTC(false);
+    }
+    if (msg.type === 'error') {
+      log('错误: ' + msg.message);
+      onlineStatus.textContent = '错误: ' + msg.message;
+    }
+    if (msg.type === 'offer' && myRole === 'join' && !offerHandled) {
+      offerHandled = true;
+      log('收到 Offer，开始处理');
+      await handleRemoteOffer(msg.sdp);
+    }
+    if (msg.type === 'answer' && myRole === 'host') {
+      log('收到 Answer');
+      if (pc && pc.signalingState === 'have-local-offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        log('Answer 已应用');
+      }
+    }
+    if (msg.type === 'candidate') {
+      if (pc) {
+        try { await pc.addIceCandidate(msg.candidate); }
+        catch (e) { log('添加 candidate 失败: ' + e.message); }
+      } else {
+        iceSendQueue.push(msg.candidate);
+      }
+    }
+    if (msg.type === 'peer-left') {
+      log('对方已离开');
+      remote.active = false;
+      onlineStatus.textContent += ' (对方离开)';
+    }
+  };
+
+  ws.onclose = () => {
+    onlineStatus.textContent = '已断开';
+    log('信令断开');
+    remote.active = false;
+  };
+  ws.onerror = () => {
+    onlineStatus.textContent = '连接失败';
+    log('信令连接失败');
+  };
 }
 
-function handleSignal(msg){
-if(!pc)return;
-if(msg.type==='offer'){
-pc.setRemoteDescription(msg.sdp).then(()=>pc.createAnswer()).then(answer=>{
-pc.setLocalDescription(answer);
-ws.send(JSON.stringify({type:'answer',sdp:answer}));
+function initWebRTC(isHost) {
+  pc = new RTCPeerConnection({
+    iceServers: [
+      {urls: 'stun:stun.l.google.com:19302'},
+      {urls: 'stun:stun1.l.google.com:19302'}
+    ]
+  });
+
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      sendSignal({type: 'candidate', candidate: e.candidate, room: currentRoom});
+    } else {
+      log('ICE 收集完成');
+    }
+  };
+  pc.onicegatheringstatechange = () => log('ICE gathering: ' + pc.iceGatheringState);
+  pc.onconnectionstatechange = () => {
+    log('连接状态: ' + pc.connectionState);
+    if (pc.connectionState === 'connected') {
+      onlineStatus.textContent = (onlineStatus.textContent.replace('等待加入...', '已连接')).replace('(对方离开)', '') + ' (P2P已连通)';
+    }
+  };
+  pc.ondatachannel = (e) => { dc = e.channel; setupDC(); };
+
+  if (isHost) {
+    dc = pc.createDataChannel('game', {ordered: true});
+    setupDC();
+    createAndSendOffer();
+  }
+}
+
+async function createAndSendOffer() {
+  try {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    setTimeout(() => {
+      if (pc.localDescription) {
+        sendSignal({type: 'offer', sdp: pc.localDescription, room: currentRoom});
+        log('Offer 已发送（含 ICE 候选）');
+      }
+    }, 800);
+  } catch (e) { log('创建 Offer 失败: ' + e.message); }
+}
+
+async function handleRemoteOffer(sdp) {
+  try {
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    while (iceSendQueue.length) {
+      const c = iceSendQueue.shift();
+      try { await pc.addIceCandidate(c); } catch {}
+    }
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    setTimeout(() => {
+      if (pc.localDescription) {
+        sendSignal({type: 'answer', sdp: pc.localDescription, room: currentRoom});
+        log('Answer 已发送（含 ICE 候选）');
+      }
+    }, 800);
+  } catch (e) { log('处理 Offer 失败: ' + e.message); }
+}
+
+function setupDC() {
+  dc.onopen = () => {
+    log('数据通道已打开');
+    remote.active = true;
+    // 立即把自己当前状态发给对方
+    try {
+      dc.send(JSON.stringify({
+        x: posX, y: posY,
+        sitting: isSitting, walking: isWalking, idx: walkIdx
+      }));
+    } catch {}
+    if (myRole === 'host') {
+      onlineStatus.textContent = onlineStatus.textContent.replace('等待加入...', '已连接');
+    } else {
+      onlineStatus.textContent += ' (已连接)';
+    }
+  };
+  dc.onclose = () => {
+    log('数据通道已关闭');
+    remote.active = false;
+  };
+  dc.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      remote.x = data.x;
+      remote.y = data.y;
+      remote.sitting = !!data.sitting;
+      remote.walking = !!data.walking;
+      remote.idx = data.idx || 0;
+      remote.active = true;
+
+      // 实时在终端显示对方位置与状态（每 500ms 最多刷一次，避免刷屏）
+      const now = Date.now();
+      if (now - lastRemoteLog > 500) {
+        lastRemoteLog = now;
+        const state = remote.sitting ? '坐下' : (remote.walking ? '走路' : '站立');
+        log(`对方 → X:${Math.round(remote.x)} Y:${Math.round(remote.y)} 状态:${state}`);
+      }
+    } catch {}
+  };
+
+  // 持续同步自己的状态
+  setInterval(() => {
+    if (dc && dc.readyState === 'open') {
+      try {
+        dc.send(JSON.stringify({
+          x: posX, y: posY,
+          sitting: isSitting, walking: isWalking, idx: walkIdx
+        }));
+      } catch {}
+    }
+  }, 40);
+}
+
+/* ============================================================
+   8. 启动：先预加载，再开游戏
+   ============================================================ */
+preloadAllImages().then(() => {
+  // 再把默认角色资源确认一次
+  [playerIdle, playerSit, ...walkFrames, remoteIdle, remoteSit, ...remoteWalk].forEach(loadImage);
+  log('系统初始化完成');
+  update(); // 启动主循环
 });
-}
-if(msg.type==='answer')pc.setRemoteDescription(msg.sdp);
-if(msg.type==='candidate')pc.addIceCandidate(msg.candidate).catch(()=>{});
-}
-
-function setupDC(){
-dc.onopen=()=>{
-log('数据通道已打开');
-remote.active=true;
-if(myRole==='host')onlineStatus.textContent=onlineStatus.textContent.replace('等待加入...','已连接');
-else onlineStatus.textContent+=' (已连接)';
-};
-dc.onclose=()=>{log('数据通道已关闭');remote.active=false};
-dc.onmessage=(e)=>{
-try{
-const data=JSON.parse(e.data);
-remote.x=data.x;
-remote.y=data.y;
-remote.sitting=!!data.sitting;
-remote.walking=!!data.walking;
-remote.idx=data.idx||0;
-remote.active=true;
-}catch{}
-};
-setInterval(()=>{
-if(dc?.readyState==='open'){
-dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}));
-}
-},40);
-}
 </script>
 </body>
 </html>
