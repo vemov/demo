@@ -1,9 +1,7 @@
 (function () {
-    const isMobile = ('maxTouchPoints' in navigator && navigator.maxTouchPoints > 0) || 
+    const isMobile = ('maxTouchPoints' in navigator && navigator.maxTouchPoints > 0) ||
                      window.matchMedia('(pointer: coarse)').matches;
-
     if (!isMobile) return;
-
     const style = document.createElement('style');
     style.innerHTML = `
         #virtual_controls {
@@ -25,7 +23,7 @@
         }
         #joystick_base {
             position: absolute;
-            bottom: 60px; 
+            bottom: 60px;
             left: 28px;
             width: 110px;
             height: 110px;
@@ -49,7 +47,7 @@
         }
         #action_buttons {
             position: absolute;
-            bottom: 60px; 
+            bottom: 60px;
             right: 24px;
             width: 155px;
             height: 155px;
@@ -119,10 +117,8 @@
         }
     `;
     document.head.appendChild(style);
-
     function createControlsDOM() {
         if (document.getElementById('virtual_controls')) return;
-
         const controlsDiv = document.createElement('div');
         controlsDiv.id = 'virtual_controls';
         controlsDiv.innerHTML = `
@@ -136,13 +132,11 @@
             </div>
         `;
         document.body.appendChild(controlsDiv);
-
         const toggleBtn = document.createElement('div');
         toggleBtn.id = 'toggle_btn';
         toggleBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>`;
         document.body.appendChild(toggleBtn);
     }
-
     function sendKeyEvent(type, key, code) {
         const event = new KeyboardEvent(type, {
             key: key,
@@ -152,20 +146,16 @@
             composed: true
         });
         window.dispatchEvent(event);
-        document.dispatchEvent(event);
     }
-
     function setupActionButton(elementId, key, code) {
         const btn = document.getElementById(elementId);
         if (!btn) return;
-
         btn.addEventListener('pointerdown', (e) => {
             e.preventDefault();
             e.stopPropagation();
             btn.classList.add('active');
             sendKeyEvent('keydown', key, code);
         });
-
         const release = (e) => {
             e.preventDefault();
             if (btn.classList.contains('active')) {
@@ -173,17 +163,31 @@
                 sendKeyEvent('keyup', key, code);
             }
         };
-
         btn.addEventListener('pointerup', release);
         btn.addEventListener('pointerleave', release);
         btn.addEventListener('pointercancel', release);
     }
-
+    let vLocked = false;
+    function setupToggleButton(elementId, key, code) {
+        const btn = document.getElementById(elementId);
+        if (!btn) return;
+        btn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (vLocked) return;
+            vLocked = true;
+            btn.classList.add('active');
+            sendKeyEvent('keydown', key, code);
+            setTimeout(() => {
+                btn.classList.remove('active');
+                vLocked = false;
+            }, 400);
+        }, { passive: false });
+    }
     function setupVirtualJoystick() {
         const base = document.getElementById('joystick_base');
         const stick = document.getElementById('joystick_stick');
         if (!base || !stick) return;
-
         const maxDist = 32;
         let activePointerId = null;
         let currentKeys = { w: false, s: false, a: false, d: false };
@@ -192,7 +196,6 @@
         let rafId = null;
         let lastClientX = 0;
         let lastClientY = 0;
-
         const updateKeys = (newKeys) => {
             const keyMap = {
                 w: { key: 'w', code: 'KeyW' },
@@ -200,7 +203,6 @@
                 a: { key: 'a', code: 'KeyA' },
                 d: { key: 'd', code: 'KeyD' }
             };
-
             ['w', 's', 'a', 'd'].forEach(k => {
                 if (currentKeys[k] !== newKeys[k]) {
                     currentKeys[k] = newKeys[k];
@@ -208,28 +210,23 @@
                 }
             });
         };
-
         base.addEventListener('pointerdown', (e) => {
             e.preventDefault();
             e.stopPropagation();
             if (activePointerId !== null) return;
             activePointerId = e.pointerId;
             base.setPointerCapture(activePointerId);
-
             const rect = base.getBoundingClientRect();
             centerX = rect.left + rect.width / 2;
             centerY = rect.top + rect.height / 2;
-
             lastClientX = e.clientX;
             lastClientY = e.clientY;
             processMove();
         }, { passive: false });
-
         base.addEventListener('pointermove', (e) => {
             if (e.pointerId !== activePointerId) return;
             lastClientX = e.clientX;
             lastClientY = e.clientY;
-
             if (!rafId) {
                 rafId = requestAnimationFrame(() => {
                     processMove();
@@ -237,27 +234,21 @@
                 });
             }
         }, { passive: true });
-
         const handleUp = (e) => {
             if (e.pointerId !== activePointerId) return;
             resetJoystick();
         };
-
         base.addEventListener('pointerup', handleUp);
         base.addEventListener('pointercancel', handleUp);
-
         function processMove() {
             let dx = lastClientX - centerX;
             let dy = lastClientY - centerY;
             const dist = Math.sqrt(dx * dx + dy * dy);
-
             if (dist > maxDist) {
                 dx = (dx / dist) * maxDist;
                 dy = (dy / dist) * maxDist;
             }
-
             stick.style.transform = `translate(${dx}px, ${dy}px)`;
-
             const threshold = 10;
             const newKeys = {
                 w: dy < -threshold,
@@ -267,7 +258,6 @@
             };
             updateKeys(newKeys);
         }
-
         function resetJoystick() {
             activePointerId = null;
             if (rafId) {
@@ -278,17 +268,14 @@
             updateKeys({ w: false, s: false, a: false, d: false });
         }
     }
-
     window.addEventListener('DOMContentLoaded', () => {
         createControlsDOM();
         setupVirtualJoystick();
-        setupActionButton('btn_fire', ' ', 'Space');
+        setupToggleButton('btn_drift', 'v', 'KeyV');
         setupActionButton('btn_backview', 'b', 'KeyB');
-        setupActionButton('btn_drift', 'v', 'KeyV');
-
+        setupActionButton('btn_fire', ' ', 'Space');
         const toggleBtn = document.getElementById('toggle_btn');
         const virtualControls = document.getElementById('virtual_controls');
-
         if (toggleBtn && virtualControls) {
             toggleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
