@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game</title>
+<title>Game webrtc</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none}
 html,body{width:100vw;height:100vh;overflow:hidden;font-family:sans-serif}
@@ -326,7 +326,7 @@ const inputWss=document.getElementById('input-wss');
 let ws=null,pc=null,dc=null,myRole=null;
 
 const savedWss=localStorage.getItem('game_wss_url');
-inputWss.value=savedWss||'ws://localhost:8080';
+inputWss.value=savedWss||'wss://test.hefengcy.com';
 
 btnOnline.onclick=()=>onlineModal.classList.add('show');
 btnCancel.onclick=btnCloseModal.onclick=()=>onlineModal.classList.remove('show');
