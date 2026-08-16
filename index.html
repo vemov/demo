@@ -37,308 +37,190 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:sans-serif}
 <script src="./virtual-controls.js" defer></script>
 <script>
 const viewport=document.getElementById('viewport'),gameArea=document.getElementById('game-area'),canvas=document.getElementById('game-canvas'),ctx=canvas.getContext('2d'),coordsVal=document.getElementById('coords-val'),logBody=document.getElementById('terminal-body'),tipsContainer=document.getElementById('tips-container');
-ctx.imageSmoothingEnabled = false;
-const worldWidth=2000, worldHeight=1000, playerSize=120;
-let posX=worldWidth/2-playerSize/2,posY=worldHeight/2-playerSize/2,speed=5,keys=new Set(),isWalking=false,walkIdx=0,walkTimer=null;
-const moveKeys=new Set(['w','a','s','d']),walkFrames=['./images/walk/walk_0001.webp','./images/walk/walk_0002.webp'];
-let currentFrameMs=100,walkStartTime=0;
-const images = {};
-function loadImage(src) {
-    if(images[src]) return images[src];
-    const img = new Image();
-    img.src = src;
-    images[src] = img;
-    return img;
-}
-loadImage('./images/player.webp');
-walkFrames.forEach(s=>loadImage(s));
-const carpetData=[
-    {id:'地毯', cx:1000, cy:450, w:450, h:250, src:'images/carpet.webp', level:-1}
-];
+ctx.imageSmoothingEnabled=false;
+const worldWidth=2000,worldHeight=1000,playerSize=120;
+let posX=worldWidth/2-playerSize/2,posY=worldHeight/2-playerSize/2,speed=5,keys=new Set(),isWalking=false,walkIdx=0,walkTimer=null,isSitting=false,currentFrameMs=100,walkStartTime=0,lastVTime=0;
+const moveKeys=new Set(['w','a','s','d']),walkFrames=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'],images={};
+function loadImage(src){if(images[src])return images[src];const img=new Image();img.src=src;images[src]=img;return img}
+loadImage('./images/player-z.webp');loadImage('./images/player-z/sit/sit.webp');walkFrames.forEach(s=>loadImage(s));
+const carpetData=[{id:'地毯',cx:1000,cy:500,w:400,h:300,src:'images/carpet.webp',level:-1}];
 const furnitureData=[
-    {
-        id:'方桌', cx:900, cy:400, w:200, h:120, src:'images/desk.webp', level:0,
-        colOffsetX1:-75, colOffsetX2:75, colOffsetY1:-25, colOffsetY2:-25,
-        itemsOnTop: [
-            { id: '盆栽', src: 'images/plant.webp', w: 80, h: 80, offsetX: -30, offsetY: -50 }
-        ]
-    },
-    {
-        id:'方桌', cx:1120, cy:400, w:200, h:120, src:'images/desk.webp', level:0,
-        colOffsetX1:-75, colOffsetX2:75, colOffsetY1:-25, colOffsetY2:-25,
-        itemsOnTop: []
-    },
-    {id:'盆栽', cx:1300, cy:400, w:80, h:80, src:'images/plant.webp', level:0, colOffsetX1:15, colOffsetX2:-5, colOffsetY1:-15, colOffsetY2:-25}
+{id:'方桌',cx:900,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOffsetX1:-75,colOffsetX2:75,colOffsetY1:-25,colOffsetY2:-25,itemsOnTop:[{id:'盆栽',src:'images/plant.webp',w:80,h:80,offsetX:-30,offsetY:-50}]},
+{id:'方桌',cx:1120,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOffsetX1:-75,colOffsetX2:75,colOffsetY1:-25,colOffsetY2:-25,itemsOnTop:[]},
+{id:'盆栽',cx:1300,cy:400,w:80,h:80,src:'images/plant.webp',level:0,colOffsetX1:15,colOffsetX2:-5,colOffsetY1:-15,colOffsetY2:-25},
+{id:'椅子',cx:1450,cy:400,w:55,h:100,src:'images/chair.webp',level:0,colOffsetX1:15,colOffsetX2:-5,colOffsetY1:-15,colOffsetY2:-25}
 ];
-carpetData.forEach(item => {
-    loadImage(item.src);
-    const tip = document.createElement('div');
-    tip.textContent = item.id;
-    tip.style.cssText = `position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,0)`;
-    tipsContainer.appendChild(tip);
-    item.tipElement = tip;
-});
-furnitureData.forEach(item => {
-    loadImage(item.src);
-    if(item.itemsOnTop && Array.isArray(item.itemsOnTop)){
-        item.itemsOnTop.forEach(sub => loadImage(sub.src));
-    }
-    const tip = document.createElement('div');
-    tip.textContent = item.id;
-    tip.style.cssText = `position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,0)`;
-    tipsContainer.appendChild(tip);
-    item.tipElement = tip;
-});
-function getFurnitureRects(){
-    return furnitureData.map(i=>{
-        const x1 = i.colOffsetX1 !== undefined ? i.colOffsetX1 : -i.w / 2;
-        const x2 = i.colOffsetX2 !== undefined ? i.colOffsetX2 : i.w / 2;
-        const y1 = i.colOffsetY1 !== undefined ? i.colOffsetY1 : -i.h / 2;
-        const y2 = i.colOffsetY2 !== undefined ? i.colOffsetY2 : i.h / 2;
-        return {
-            x: i.cx + x1,
-            y: i.cy + y1,
-            w: (i.cx + x2) - (i.cx + x1),
-            h: (i.cy + y2) - (i.cy + y1)
-        };
-    });
-}
+function createTip(item){const tip=document.createElement('div');tip.textContent=item.id;tip.style.cssText=`position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,0)`;tipsContainer.appendChild(tip);item.tipElement=tip}
+carpetData.forEach(item=>{loadImage(item.src);createTip(item)});
+furnitureData.forEach(item=>{loadImage(item.src);if(item.itemsOnTop)item.itemsOnTop.forEach(sub=>loadImage(sub.src));createTip(item)});
+function getFurnitureRects(){return furnitureData.map(i=>{const x1=i.colOffsetX1??-i.w/2,x2=i.colOffsetX2??i.w/2,y1=i.colOffsetY1??-i.h/2,y2=i.colOffsetY2??i.h/2;return{x:i.cx+x1,y:i.cy+y1,w:(i.cx+x2)-(i.cx+x1),h:(i.cy+y2)-(i.cy+y1)}})}
 function log(msg){const d=document.createElement('div');d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;logBody.prepend(d)}
 function isMoving(){return keys.has('w')||keys.has('s')||keys.has('a')||keys.has('d')}
-function startWalk(){
-    if(isWalking) return;
-    isWalking = true;
-    walkIdx = 0;
-    walkStartTime = Date.now();
-    currentFrameMs = 100;
-    walkTimer = setInterval(nextFrame, currentFrameMs);
-    log('开始走路');
-}
-function nextFrame(){walkIdx=1-walkIdx;}
-function stopWalk(){
-    if(!isWalking)return;
-    const elapsed=Date.now()-walkStartTime;
-    if(elapsed<300){
-        setTimeout(stopWalk,300-elapsed);
-        return;
-    }
-    isWalking=false;clearInterval(walkTimer);walkTimer=null;log('停止走路')
-}
+function startWalk(){if(isWalking||isSitting)return;isWalking=true;walkIdx=0;walkStartTime=Date.now();currentFrameMs=100;walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs);log('开始走路')}
+function stopWalk(){if(!isWalking)return;const elapsed=Date.now()-walkStartTime;if(elapsed<300){setTimeout(stopWalk,300-elapsed);return}isWalking=false;clearInterval(walkTimer);walkTimer=null;log('停止走路')}
+function getChair(){return furnitureData.find(i=>i.id==='椅子')}
 window.addEventListener('keydown',e=>{
-    const k=e.key.toLowerCase();
-    if(!keys.has(k)){
-        keys.add(k);
-        log(`按下按键: ${e.key}`);
-        if(moveKeys.has(k)) startWalk();
-    }
+const k=e.key.toLowerCase();
+if(k==='v'){
+const now=Date.now();
+if(now-lastVTime<400)return;
+lastVTime=now;
+const chair=getChair();
+if(isSitting){
+isSitting=false;
+if(chair){
+const candidates=[
+{x:chair.cx-playerSize/2,y:chair.cy+5},
+{x:chair.cx-playerSize/2-40,y:chair.cy+5},
+{x:chair.cx-playerSize/2+40,y:chair.cy+5},
+{x:chair.cx-playerSize/2,y:chair.cy+60}
+];
+const rects=getFurnitureRects();
+let placed=false;
+for(const c of candidates){
+let hit=false;
+for(const r of rects){if(checkCollision(c.x,c.y,playerSize,playerSize,r.x,r.y,r.w,r.h)){hit=true;break}}
+if(!hit){posX=Math.max(0,Math.min(worldWidth-playerSize,c.x));posY=Math.max(0,Math.min(worldHeight-playerSize,c.y));placed=true;break}
+}
+if(!placed){posX=chair.cx-playerSize/2;posY=chair.cy+5}
+}
+log('站起');
+}else if(chair){
+const pCx=posX+playerSize/2,pBottom=posY+playerSize,dx=pCx-chair.cx,dy=(posY+playerSize/2)-chair.cy,dist=Math.sqrt(dx*dx+dy*dy);
+if(dist<110&&pBottom>chair.cy-10){isSitting=true;posX=chair.cx-playerSize/2;posY=chair.cy-100;keys.clear();stopWalk();log('坐下')}
+}
+return;
+}
+if(isSitting)return;
+if(!keys.has(k)){keys.add(k);log(`按下按键: ${e.key}`);if(moveKeys.has(k))startWalk()}
 });
-window.addEventListener('keyup',e=>{
-    const k=e.key.toLowerCase();
-    keys.delete(k);
-    if(moveKeys.has(k) && !isMoving()){
-        stopWalk();
-    }
-});
+window.addEventListener('keyup',e=>{if(isSitting)return;const k=e.key.toLowerCase();keys.delete(k);if(moveKeys.has(k)&&!isMoving())stopWalk()});
 window.addEventListener('blur',()=>{keys.clear();stopWalk();log('窗口失去焦点，已重置按键')});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();stopWalk()}});
 function checkCollision(x,y,w,h,rx,ry,rw,rh){return x<rx+rw&&x+w>rx&&y<ry+rh&&y+h>ry}
 function update(){
-    if(isWalking){const targetMs=100;if(targetMs!==currentFrameMs){currentFrameMs=targetMs;clearInterval(walkTimer);walkTimer=setInterval(nextFrame,currentFrameMs)}}
-    let nextX=posX,nextY=posY;
-    if(keys.has('w'))nextY-=speed;if(keys.has('s'))nextY+=speed;if(keys.has('a'))nextX-=speed;if(keys.has('d'))nextX+=speed;
-    const maxX=worldWidth-playerSize,maxY=worldHeight-playerSize;
-    nextX=Math.max(0,Math.min(maxX,nextX));nextY=Math.max(0,Math.min(maxY,nextY));
-    const leftX=0,rightX=0,upY=0,downY=0,pBoxW=playerSize-leftX-rightX,pBoxH=playerSize-upY-downY,rects=getFurnitureRects();
-    let canMoveX=true,canMoveY=true;
-    for(const r of rects){if(checkCollision(nextX+leftX,posY+upY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveX=false;break}}
-    if(canMoveX)posX=nextX;
-    for(const r of rects){if(checkCollision(posX+leftX,nextY+upY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveY=false;break}}
-    if(canMoveY)posY=nextY;
-    let stuck=true,safety=0;
-    while(stuck&&safety<10){
-        stuck=false;
-        safety++;
-        for(const r of rects){
-            const pBox={x:posX+leftX,y:posY+upY,w:pBoxW,h:pBoxH};
-            if(checkCollision(pBox.x,pBox.y,pBox.w,pBox.h,r.x,r.y,r.w,r.h)){
-                stuck=true;
-                const overlapX=Math.min(pBox.x+pBox.w-r.x, r.x+r.w-pBox.x);
-                const overlapY=Math.min(pBox.y+pBox.h-r.y, r.y+r.h-pBox.y);
-                if(overlapX<overlapY){
-                    if(pBox.x+pBox.w/2 < r.x+r.w/2) posX-=overlapX;
-                    else posX+=overlapX;
-                }else{
-                    if(pBox.y+pBox.h/2 < r.y+r.h/2) posY-=overlapY;
-                    else posY+=overlapY;
-                }
-                posX=Math.max(0,Math.min(maxX,posX));
-                posY=Math.max(0,Math.min(maxY,posY));
-            }
-        }
-    }
-    const currentPBox={x:posX+leftX,y:posY+upY,w:pBoxW,h:pBoxH},threshold=30;
-    carpetData.forEach(item=>{
-        item.tipElement.style.display='none';
-        item.tipElement.textContent=item.id;
-    });
-    furnitureData.forEach(item=>{
-        item.tipElement.style.display='none';
-        let displayName = item.id;
-        if(item.itemsOnTop && item.itemsOnTop.length > 0){
-            const topNames = item.itemsOnTop.map(sub => sub.id).filter(Boolean);
-            if(topNames.length > 0){
-                displayName += ' ' + topNames.join(' ');
-            }
-        }
-        item.tipElement.textContent = displayName;
-    });
-    const allInteractives = [...carpetData, ...furnitureData];
-    const activeItems = allInteractives.filter(item=>{
-        const rect={x:item.cx-item.w/2,y:item.cy-item.h/2,w:item.w,h:item.h},pRect={x:rect.x-threshold,y:rect.y-threshold,w:rect.w+2*threshold,h:rect.h+2*threshold};
-        return checkCollision(currentPBox.x,currentPBox.y,currentPBox.w,currentPBox.h,pRect.x,pRect.y,pRect.w,pRect.h);
-    });
-    const clusters = [];
-    activeItems.forEach(item=>{
-        let added = false;
-        for(const cluster of clusters){
-            const isClose = cluster.some(ci=>{
-                const dx = ci.cx - item.cx;
-                const dy = ci.cy - item.cy;
-                return Math.sqrt(dx*dx + dy*dy) < 180;
-            });
-            if(isClose){
-                cluster.push(item);
-                added = true;
-                break;
-            }
-        }
-        if(!added){
-            clusters.push([item]);
-        }
-    });
-    clusters.forEach(cluster=>{
-        if(cluster.length === 1){
-            cluster[0].tipElement.style.left = cluster[0].cx + 'px';
-            cluster[0].tipElement.style.top = (cluster[0].cy - cluster[0].h/2 - 25) + 'px';
-            cluster[0].tipElement.style.display = 'block';
-        }else{
-            const maxLevel = Math.max(...cluster.map(i => i.level));
-            const topItems = cluster.filter(i => i.level === maxLevel);
-            const combinedName = Array.from(new Set(topItems.flatMap(i => {
-                let names = [i.id];
-                if(i.itemsOnTop) {
-                    i.itemsOnTop.forEach(sub => { if(sub.id) names.push(sub.id); });
-                }
-                return names;
-            }))).join(' ');
-            const primary = topItems[0];
-            const avgCx = topItems.reduce((sum, i) => sum + i.cx, 0) / topItems.length;
-            const minTopY = Math.min(...topItems.map(i => i.cy - i.h/2));
-            primary.tipElement.textContent = combinedName;
-            primary.tipElement.style.left = avgCx + 'px';
-            primary.tipElement.style.top = (minTopY - 25) + 'px';
-            primary.tipElement.style.display = 'block';
-        }
-    });
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const renderList = [];
-    carpetData.forEach((item, index) => {
-        renderList.push({
-            type: 'carpet',
-            data: item,
-            y: item.cy + item.h / 2,
-            level: item.level,
-            originalIndex: index
-        });
-    });
-    furnitureData.forEach((item, index) => {
-        renderList.push({
-            type: 'furniture',
-            data: item,
-            y: item.cy + item.h / 2,
-            level: item.level,
-            originalIndex: index
-        });
-    });
-    const pBottom = currentPBox.y + currentPBox.h;
-    renderList.push({
-        type: 'player',
-        y: pBottom,
-        level: 0,
-        originalIndex: 9999
-    });
-    renderList.sort((a, b) => {
-        if (a.level !== b.level) {
-            return a.level - b.level;
-        }
-        if (a.y !== b.y) {
-            return a.y - b.y;
-        }
-        if (a.type === 'player' && b.type !== 'player') {
-            return 1;
-        }
-        if (a.type !== 'player' && b.type === 'player') {
-            return -1;
-        }
-        return a.originalIndex - b.originalIndex;
-    });
-    renderList.forEach(item => {
-        if (item.type === 'carpet') {
-            const c = item.data;
-            const img = images[c.src];
-            if (img && img.complete && img.naturalWidth !== 0) {
-                ctx.drawImage(img, Math.round(c.cx - c.w/2), Math.round(c.cy - c.h/2), c.w, c.h);
-            } else {
-                ctx.fillStyle = '#d7ccc8';
-                ctx.fillRect(Math.round(c.cx - c.w/2), Math.round(c.cy - c.h/2), c.w, c.h);
-            }
-        } else if (item.type === 'furniture') {
-            const f = item.data;
-            const img = images[f.src];
-            if (img && img.complete && img.naturalWidth !== 0) {
-                ctx.drawImage(img, Math.round(f.cx - f.w/2), Math.round(f.cy - f.h/2), f.w, f.h);
-            } else {
-                ctx.fillStyle = '#8B4513';
-                ctx.fillRect(Math.round(f.cx - f.w/2), Math.round(f.cy - f.h/2), f.w, f.h);
-            }
-            if (f.itemsOnTop && Array.isArray(f.itemsOnTop)) {
-                f.itemsOnTop.forEach(sub => {
-                    const subImg = images[sub.src];
-                    const subX = f.cx + (sub.offsetX || 0) - (sub.w / 2);
-                    const subY = f.cy + (sub.offsetY || 0) - (sub.h / 2);
-                    if (subImg && subImg.complete && subImg.naturalWidth !== 0) {
-                        ctx.drawImage(subImg, Math.round(subX), Math.round(subY), sub.w, sub.h);
-                    } else {
-                        ctx.fillStyle = '#555';
-                        ctx.fillRect(Math.round(subX), Math.round(subY), sub.w, sub.h);
-                    }
-                });
-            }
-        } else if (item.type === 'player') {
-            const playerImgSrc = isWalking ? walkFrames[walkIdx] : './images/player.webp';
-            const img = images[playerImgSrc];
-            if (img && img.complete && img.naturalWidth !== 0) {
-                ctx.drawImage(img, Math.round(posX), Math.round(posY), playerSize, playerSize);
-            } else {
-                ctx.fillStyle = '#8A2BE2';
-                ctx.fillRect(Math.round(posX), Math.round(posY), playerSize, playerSize);
-            }
-        }
-    });
-    if(isMoving()){
-        if(!isWalking) startWalk();
-    }else{
-        if(isWalking) stopWalk();
-    }
-    coordsVal.textContent=`X: ${Math.round(posX)}, Y: ${Math.round(posY)}`;
-    viewport.scrollTo({
-        left: posX + playerSize/2 - window.innerWidth/2,
-        top: posY + playerSize/2 - window.innerHeight/2,
-        behavior: 'auto'
-    });
-    requestAnimationFrame(update);
+if(isWalking){const t=100;if(t!==currentFrameMs){currentFrameMs=t;clearInterval(walkTimer);walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs)}}
+if(isSitting){const chair=getChair();if(chair){posX=chair.cx-playerSize/2;posY=chair.cy-100}}
+else{
+let nextX=posX,nextY=posY;
+if(keys.has('w'))nextY-=speed;if(keys.has('s'))nextY+=speed;if(keys.has('a'))nextX-=speed;if(keys.has('d'))nextX+=speed;
+const maxX=worldWidth-playerSize,maxY=worldHeight-playerSize;
+nextX=Math.max(0,Math.min(maxX,nextX));nextY=Math.max(0,Math.min(maxY,nextY));
+const pBoxW=playerSize,pBoxH=playerSize,rects=getFurnitureRects();
+let canMoveX=true,canMoveY=true;
+for(const r of rects){if(checkCollision(nextX,posY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveX=false;break}}
+if(canMoveX)posX=nextX;
+for(const r of rects){if(checkCollision(posX,nextY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveY=false;break}}
+if(canMoveY)posY=nextY;
+let stuck=true,safety=0;
+while(stuck&&safety<10){
+stuck=false;safety++;
+for(const r of rects){
+const pBox={x:posX,y:posY,w:pBoxW,h:pBoxH};
+if(checkCollision(pBox.x,pBox.y,pBox.w,pBox.h,r.x,r.y,r.w,r.h)){
+stuck=true;
+const overlapX=Math.min(pBox.x+pBox.w-r.x,r.x+r.w-pBox.x),overlapY=Math.min(pBox.y+pBox.h-r.y,r.y+r.h-pBox.y);
+if(overlapX<overlapY){if(pBox.x+pBox.w/2<r.x+r.w/2)posX-=overlapX;else posX+=overlapX}
+else{if(pBox.y+pBox.h/2<r.y+r.h/2)posY-=overlapY;else posY+=overlapY}
+posX=Math.max(0,Math.min(maxX,posX));posY=Math.max(0,Math.min(maxY,posY));
 }
-update(); log('系统初始化完成');
+}
+}
+}
+const currentPBox={x:posX,y:posY,w:playerSize,h:playerSize},threshold=30;
+carpetData.forEach(item=>{item.tipElement.style.display='none';item.tipElement.textContent=item.id;item.tipElement.style.color='#fff'});
+furnitureData.forEach(item=>{
+item.tipElement.style.display='none';item.tipElement.style.color='#fff';
+let displayName=item.id;
+if(item.itemsOnTop?.length){const topNames=item.itemsOnTop.map(s=>s.id).filter(Boolean);if(topNames.length)displayName+=' '+topNames.join(' ')}
+item.tipElement.textContent=displayName;
+});
+const allInteractives=[...carpetData,...furnitureData];
+const activeItems=allInteractives.filter(item=>{
+const rect={x:item.cx-item.w/2,y:item.cy-item.h/2,w:item.w,h:item.h};
+const pRect={x:rect.x-threshold,y:rect.y-threshold,w:rect.w+2*threshold,h:rect.h+2*threshold};
+return checkCollision(currentPBox.x,currentPBox.y,currentPBox.w,currentPBox.h,pRect.x,pRect.y,pRect.w,pRect.h);
+});
+const clusters=[];
+activeItems.forEach(item=>{
+let added=false;
+for(const cluster of clusters){
+if(cluster.some(ci=>{const dx=ci.cx-item.cx,dy=ci.cy-item.cy;return Math.sqrt(dx*dx+dy*dy)<180})){cluster.push(item);added=true;break}
+}
+if(!added)clusters.push([item]);
+});
+clusters.forEach(cluster=>{
+if(cluster.length===1){
+cluster[0].tipElement.style.left=cluster[0].cx+'px';
+cluster[0].tipElement.style.top=(cluster[0].cy-cluster[0].h/2-25)+'px';
+cluster[0].tipElement.style.display='block';
+}else{
+const maxLevel=Math.max(...cluster.map(i=>i.level));
+const topItems=cluster.filter(i=>i.level===maxLevel);
+const combinedName=Array.from(new Set(topItems.flatMap(i=>{
+let names=[i.id];if(i.itemsOnTop)i.itemsOnTop.forEach(sub=>{if(sub.id)names.push(sub.id)});return names;
+}))).join(' ');
+const primary=topItems[0];
+const avgCx=topItems.reduce((s,i)=>s+i.cx,0)/topItems.length;
+const minTopY=Math.min(...topItems.map(i=>i.cy-i.h/2));
+primary.tipElement.textContent=combinedName;
+primary.tipElement.style.left=avgCx+'px';
+primary.tipElement.style.top=(minTopY-25)+'px';
+primary.tipElement.style.display='block';
+}
+});
+const chair=getChair();
+if(chair?.tipElement){
+const pCx=posX+playerSize/2,pBottom=posY+playerSize,dx=pCx-chair.cx,dy=(posY+playerSize/2)-chair.cy,dist=Math.sqrt(dx*dx+dy*dy);
+const nearBottom=!isSitting&&dist<110&&pBottom>chair.cy-10;
+if(isSitting||nearBottom){
+chair.tipElement.textContent=isSitting?'V 键站起':'V 键坐下';
+chair.tipElement.style.color='#ffeb3b';
+chair.tipElement.style.left=chair.cx+'px';
+chair.tipElement.style.top=(chair.cy-chair.h/2-25)+'px';
+chair.tipElement.style.display='block';
+}
+}
+ctx.clearRect(0,0,canvas.width,canvas.height);
+const renderList=[];
+carpetData.forEach((item,i)=>renderList.push({type:'carpet',data:item,y:item.cy+item.h/2,level:item.level,originalIndex:i}));
+furnitureData.forEach((item,i)=>renderList.push({type:'furniture',data:item,y:item.cy+item.h/2,level:item.level,originalIndex:i}));
+const pBottom=currentPBox.y+currentPBox.h;
+renderList.push({type:'player',y:isSitting?9999:pBottom,level:0,originalIndex:9999});
+renderList.sort((a,b)=>{
+if(a.level!==b.level)return a.level-b.level;
+if(a.y!==b.y)return a.y-b.y;
+if(a.type==='player'&&b.type!=='player')return 1;
+if(a.type!=='player'&&b.type==='player')return -1;
+return a.originalIndex-b.originalIndex;
+});
+renderList.forEach(item=>{
+if(item.type==='carpet'){
+const c=item.data,img=images[c.src];
+if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h);
+else{ctx.fillStyle='#d7ccc8';ctx.fillRect(Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h)}
+}else if(item.type==='furniture'){
+const f=item.data,img=images[f.src];
+if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h);
+else{ctx.fillStyle='#8B4513';ctx.fillRect(Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h)}
+if(f.itemsOnTop)f.itemsOnTop.forEach(sub=>{
+const subImg=images[sub.src],subX=f.cx+(sub.offsetX||0)-sub.w/2,subY=f.cy+(sub.offsetY||0)-sub.h/2;
+if(subImg?.complete&&subImg.naturalWidth)ctx.drawImage(subImg,Math.round(subX),Math.round(subY),sub.w,sub.h);
+else{ctx.fillStyle='#555';ctx.fillRect(Math.round(subX),Math.round(subY),sub.w,sub.h)}
+});
+}else if(item.type==='player'){
+const src=isSitting?'./images/player-z/sit/sit.webp':(isWalking?walkFrames[walkIdx]:'./images/player-z.webp');
+const img=images[src];
+if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(posX),Math.round(posY),playerSize,playerSize);
+else{ctx.fillStyle='#8A2BE2';ctx.fillRect(Math.round(posX),Math.round(posY),playerSize,playerSize)}
+}
+});
+if(!isSitting){if(isMoving()){if(!isWalking)startWalk()}else if(isWalking)stopWalk()}
+coordsVal.textContent=`X: ${Math.round(posX)}, Y: ${Math.round(posY)}`;
+viewport.scrollTo({left:posX+playerSize/2-window.innerWidth/2,top:posY+playerSize/2-window.innerHeight/2,behavior:'auto'});
+requestAnimationFrame(update);
+}
+update();log('系统初始化完成');
 </script>
 </body>
 </html>
