@@ -18,9 +18,58 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:sans-serif}
 #terminal-body::-webkit-scrollbar-track{background:#111}
 #terminal-body::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
 #terminal-body::-webkit-scrollbar-thumb:hover{background:#777}
+#top-bar{position:fixed;top:0;left:0;width:100%;height:40px;background:linear-gradient(to bottom,#3a6ea5,#2b579a);display:flex;align-items:center;padding:0 12px;z-index:10000;gap:10px;box-shadow:0 2px 6px rgba(0,0,0,0.3);border-bottom:1px solid #1a3a6e}
+#btn-online{background:linear-gradient(to bottom,#5b9bd5,#3a7ab8);color:#fff;border:1px solid #2b579a;padding:5px 16px;border-radius:4px;font-size:13px;cursor:pointer;font-weight:bold;text-shadow:0 1px 1px rgba(0,0,0,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.25)}
+#btn-online:hover{background:linear-gradient(to bottom,#6baae0,#4a8ac8)}
+#btn-online:active{background:linear-gradient(to bottom,#3a7ab8,#2b579a)}
+#online-status{color:#e0eefc;font-size:12px;margin-left:6px;text-shadow:0 1px 1px rgba(0,0,0,0.4)}
+#online-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;align-items:center;justify-content:center}
+#online-modal.show{display:flex}
+.modal-box{background:linear-gradient(to bottom,#f0f4f8,#e4eaf0);border-radius:8px;padding:0;width:360px;max-width:92vw;color:#222;box-shadow:0 10px 40px rgba(0,0,0,0.45),0 0 0 1px #8ba3c0;overflow:hidden;font-family:Tahoma,Arial,sans-serif}
+.modal-header{background:linear-gradient(to bottom,#4a86c8,#2b579a);color:#fff;padding:10px 14px;font-size:14px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;text-shadow:0 1px 1px rgba(0,0,0,0.3)}
+.modal-header .close-btn{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1;padding:0 4px;opacity:0.85}
+.modal-header .close-btn:hover{opacity:1}
+.modal-body{padding:18px 20px 12px}
+.modal-body label{display:block;font-size:12px;margin-bottom:3px;color:#444;font-weight:bold}
+.modal-body input[type=text]{width:100%;padding:7px 10px;border-radius:4px;border:1px solid #a0b0c0;background:#fff;color:#222;font-size:13px;margin-bottom:12px;box-shadow:inset 0 1px 2px rgba(0,0,0,0.08)}
+.modal-body input[type=text]:focus{outline:none;border-color:#4a86c8;box-shadow:0 0 0 2px rgba(74,134,200,0.25)}
+.modal-body .row{display:flex;gap:18px;margin:10px 0 14px}
+.modal-body .row label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:normal;color:#333}
+.modal-footer{padding:10px 20px 16px;display:flex;gap:10px;justify-content:flex-end;background:#e8eef4;border-top:1px solid #c8d4e0}
+.modal-footer button{padding:7px 22px;border-radius:4px;font-size:13px;font-weight:bold;cursor:pointer;border:1px solid #8ba3c0}
+#btn-confirm{background:linear-gradient(to bottom,#5b9bd5,#3a7ab8);color:#fff;border-color:#2b579a;text-shadow:0 1px 1px rgba(0,0,0,0.25)}
+#btn-confirm:hover{background:linear-gradient(to bottom,#6baae0,#4a8ac8)}
+#btn-cancel{background:linear-gradient(to bottom,#f5f5f5,#e0e0e0);color:#333}
+#btn-cancel:hover{background:linear-gradient(to bottom,#fff,#ebebeb)}
 </style>
 </head>
 <body>
+<div id="top-bar">
+<button id="btn-online">联机</button>
+<span id="online-status">未连接</span>
+</div>
+<div id="online-modal">
+<div class="modal-box">
+<div class="modal-header">
+<span>WebRTC连接</span>
+<button class="close-btn" id="btn-close-modal">×</button>
+</div>
+<div class="modal-body">
+<label>信令服务器地址 (wss:// 或 ws://)</label>
+<input type="text" id="input-wss" placeholder="ws://localhost:8080">
+<label>房间号</label>
+<input type="text" id="input-room" placeholder="输入房间号">
+<div class="row">
+<label><input type="radio" name="mode" value="create"> 创建房间</label>
+<label><input type="radio" name="mode" value="join" checked> 加入房间</label>
+</div>
+</div>
+<div class="modal-footer">
+<button id="btn-cancel">取消</button>
+<button id="btn-confirm">确定</button>
+</div>
+</div>
+</div>
 <div id="viewport">
 <div id="game-area">
 <canvas id="game-canvas" width="2000" height="1000"></canvas>
@@ -39,10 +88,35 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:sans-serif}
 const viewport=document.getElementById('viewport'),gameArea=document.getElementById('game-area'),canvas=document.getElementById('game-canvas'),ctx=canvas.getContext('2d'),coordsVal=document.getElementById('coords-val'),logBody=document.getElementById('terminal-body'),tipsContainer=document.getElementById('tips-container');
 ctx.imageSmoothingEnabled=false;
 const worldWidth=2000,worldHeight=1000,playerSize=120;
-let posX=worldWidth/2-playerSize/2,posY=worldHeight/2-playerSize/2,speed=5,keys=new Set(),isWalking=false,walkIdx=0,walkTimer=null,isSitting=false,currentFrameMs=100,walkStartTime=0,lastVTime=0;
-const moveKeys=new Set(['w','a','s','d']),walkFrames=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'],images={};
+let posX=800,posY=450,speed=5,keys=new Set(),isWalking=false,walkIdx=0,walkTimer=null,isSitting=false,currentFrameMs=100,walkStartTime=0,lastVTime=0;
+const moveKeys=new Set(['w','a','s','d']);
+let playerIdle='./images/player-z.webp';
+let playerSit='./images/player-z/sit/sit.webp';
+let walkFrames=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];
+let remoteIdle='./images/player-x.webp';
+let remoteSit='./images/player-x/sit/sit.webp';
+let remoteWalk=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
+const images={};
 function loadImage(src){if(images[src])return images[src];const img=new Image();img.src=src;images[src]=img;return img}
-loadImage('./images/player-z.webp');loadImage('./images/player-z/sit/sit.webp');walkFrames.forEach(s=>loadImage(s));
+function setPlayerAssets(role){
+if(role==='host'){
+playerIdle='./images/player-z.webp';
+playerSit='./images/player-z/sit/sit.webp';
+walkFrames=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];
+remoteIdle='./images/player-x.webp';
+remoteSit='./images/player-x/sit/sit.webp';
+remoteWalk=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
+}else{
+playerIdle='./images/player-x.webp';
+playerSit='./images/player-x/sit/sit.webp';
+walkFrames=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
+remoteIdle='./images/player-z.webp';
+remoteSit='./images/player-z/sit/sit.webp';
+remoteWalk=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];
+}
+[playerIdle,playerSit,...walkFrames,remoteIdle,remoteSit,...remoteWalk].forEach(loadImage);
+}
+[playerIdle,playerSit,...walkFrames,remoteIdle,remoteSit,...remoteWalk].forEach(loadImage);
 const carpetData=[{id:'地毯',cx:1000,cy:500,w:400,h:300,src:'images/carpet.webp',level:-1}];
 const furnitureData=[
 {id:'方桌',cx:900,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOffsetX1:-75,colOffsetX2:75,colOffsetY1:-25,colOffsetY2:-25,itemsOnTop:[{id:'盆栽',src:'images/plant.webp',w:80,h:80,offsetX:-30,offsetY:-50}]},
@@ -59,6 +133,15 @@ function isMoving(){return keys.has('w')||keys.has('s')||keys.has('a')||keys.has
 function startWalk(){if(isWalking||isSitting)return;isWalking=true;walkIdx=0;walkStartTime=Date.now();currentFrameMs=100;walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs);log('开始走路')}
 function stopWalk(){if(!isWalking)return;const elapsed=Date.now()-walkStartTime;if(elapsed<300){setTimeout(stopWalk,300-elapsed);return}isWalking=false;clearInterval(walkTimer);walkTimer=null;log('停止走路')}
 function getChair(){return furnitureData.find(i=>i.id==='椅子')}
+function isChairOccupied(){
+if(!remote.active||!remote.sitting)return false;
+const chair=getChair();
+if(!chair)return false;
+const dx=(remote.x+playerSize/2)-chair.cx;
+const dy=(remote.y+playerSize/2)-chair.cy;
+return Math.sqrt(dx*dx+dy*dy)<80;
+}
+let remote={x:1100,y:450,sitting:false,walking:false,idx:0,active:false};
 window.addEventListener('keydown',e=>{
 const k=e.key.toLowerCase();
 if(k==='v'){
@@ -86,6 +169,7 @@ if(!placed){posX=chair.cx-playerSize/2;posY=chair.cy+5}
 }
 log('站起');
 }else if(chair){
+if(isChairOccupied()){log('椅子已有人');return}
 const pCx=posX+playerSize/2,pBottom=posY+playerSize,dx=pCx-chair.cx,dy=(posY+playerSize/2)-chair.cy,dist=Math.sqrt(dx*dx+dy*dy);
 if(dist<110&&pBottom>chair.cy-10){isSitting=true;posX=chair.cx-playerSize/2;posY=chair.cy-100;keys.clear();stopWalk();log('坐下')}
 }
@@ -174,8 +258,8 @@ if(chair?.tipElement){
 const pCx=posX+playerSize/2,pBottom=posY+playerSize,dx=pCx-chair.cx,dy=(posY+playerSize/2)-chair.cy,dist=Math.sqrt(dx*dx+dy*dy);
 const nearBottom=!isSitting&&dist<110&&pBottom>chair.cy-10;
 if(isSitting||nearBottom){
-chair.tipElement.textContent=isSitting?'V 键站起':'V 键坐下';
-chair.tipElement.style.color='#ffeb3b';
+chair.tipElement.textContent=isSitting?'V 键站起':(isChairOccupied()?'椅子已有人':'V 键坐下');
+chair.tipElement.style.color=isChairOccupied()&&!isSitting?'#ff8a80':'#ffeb3b';
 chair.tipElement.style.left=chair.cx+'px';
 chair.tipElement.style.top=(chair.cy-chair.h/2-25)+'px';
 chair.tipElement.style.display='block';
@@ -185,8 +269,13 @@ ctx.clearRect(0,0,canvas.width,canvas.height);
 const renderList=[];
 carpetData.forEach((item,i)=>renderList.push({type:'carpet',data:item,y:item.cy+item.h/2,level:item.level,originalIndex:i}));
 furnitureData.forEach((item,i)=>renderList.push({type:'furniture',data:item,y:item.cy+item.h/2,level:item.level,originalIndex:i}));
-const pBottom=currentPBox.y+currentPBox.h;
-renderList.push({type:'player',y:isSitting?9999:pBottom,level:0,originalIndex:9999});
+const chairBottom=chair?(chair.cy+chair.h/2):0;
+const pBottom=isSitting?chairBottom:(currentPBox.y+currentPBox.h);
+renderList.push({type:'player',y:pBottom,level:0,originalIndex:9999});
+if(remote.active){
+const rBottom=remote.sitting?chairBottom:(remote.y+playerSize);
+renderList.push({type:'remote',y:rBottom,level:0,originalIndex:9998});
+}
 renderList.sort((a,b)=>{
 if(a.level!==b.level)return a.level-b.level;
 if(a.y!==b.y)return a.y-b.y;
@@ -209,10 +298,15 @@ if(subImg?.complete&&subImg.naturalWidth)ctx.drawImage(subImg,Math.round(subX),M
 else{ctx.fillStyle='#555';ctx.fillRect(Math.round(subX),Math.round(subY),sub.w,sub.h)}
 });
 }else if(item.type==='player'){
-const src=isSitting?'./images/player-z/sit/sit.webp':(isWalking?walkFrames[walkIdx]:'./images/player-z.webp');
+const src=isSitting?playerSit:(isWalking?walkFrames[walkIdx]:playerIdle);
 const img=images[src];
 if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(posX),Math.round(posY),playerSize,playerSize);
 else{ctx.fillStyle='#8A2BE2';ctx.fillRect(Math.round(posX),Math.round(posY),playerSize,playerSize)}
+}else if(item.type==='remote'){
+const src=remote.sitting?remoteSit:(remote.walking?remoteWalk[remote.idx%remoteWalk.length]:remoteIdle);
+const img=images[src];
+if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(remote.x),Math.round(remote.y),playerSize,playerSize);
+else{ctx.fillStyle='#e91e63';ctx.fillRect(Math.round(remote.x),Math.round(remote.y),playerSize,playerSize)}
 }
 });
 if(!isSitting){if(isMoving()){if(!isWalking)startWalk()}else if(isWalking)stopWalk()}
@@ -221,6 +315,118 @@ viewport.scrollTo({left:posX+playerSize/2-window.innerWidth/2,top:posY+playerSiz
 requestAnimationFrame(update);
 }
 update();log('系统初始化完成');
+
+const btnOnline=document.getElementById('btn-online');
+const onlineModal=document.getElementById('online-modal');
+const btnConfirm=document.getElementById('btn-confirm');
+const btnCancel=document.getElementById('btn-cancel');
+const btnCloseModal=document.getElementById('btn-close-modal');
+const onlineStatus=document.getElementById('online-status');
+const inputWss=document.getElementById('input-wss');
+let ws=null,pc=null,dc=null,myRole=null;
+
+const savedWss=localStorage.getItem('game_wss_url');
+inputWss.value=savedWss||'ws://localhost:8080';
+
+btnOnline.onclick=()=>onlineModal.classList.add('show');
+btnCancel.onclick=btnCloseModal.onclick=()=>onlineModal.classList.remove('show');
+
+btnConfirm.onclick=()=>{
+const wssUrl=inputWss.value.trim();
+const room=document.getElementById('input-room').value.trim();
+const mode=document.querySelector('input[name=mode]:checked').value;
+if(!wssUrl||!room){alert('请填写服务器地址和房间号');return}
+localStorage.setItem('game_wss_url',wssUrl);
+onlineModal.classList.remove('show');
+connectSignaling(wssUrl,room,mode);
+};
+
+function connectSignaling(url,room,mode){
+if(ws){ws.close();ws=null}
+onlineStatus.textContent='连接中...';
+ws=new WebSocket(url);
+ws.onopen=()=>{
+log('信令已连接');
+if(mode==='create'){
+ws.send(JSON.stringify({type:'create',room}));
+myRole='host';
+setPlayerAssets('host');
+posX=800;posY=450;
+}else{
+ws.send(JSON.stringify({type:'join',room}));
+myRole='join';
+setPlayerAssets('join');
+posX=1100;posY=450;
+}
+};
+ws.onmessage=(ev)=>{
+let msg;try{msg=JSON.parse(ev.data)}catch{return}
+if(msg.type==='room-created'){
+log('房间创建成功，等待加入...');
+onlineStatus.textContent='房间 '+room+' 已创建，等待加入...';
+initWebRTC(true);
+}
+if(msg.type==='joined'){
+log('成功加入房间');
+onlineStatus.textContent='已加入房间 '+room;
+initWebRTC(false);
+}
+if(msg.type==='error'){log('错误: '+msg.message);onlineStatus.textContent='错误: '+msg.message}
+if(msg.type==='offer'||msg.type==='answer'||msg.type==='candidate')handleSignal(msg);
+if(msg.type==='peer-left'){log('对方已离开');remote.active=false;onlineStatus.textContent+=' (对方离开)'}
+};
+ws.onclose=()=>{onlineStatus.textContent='已断开';log('信令断开');remote.active=false};
+ws.onerror=()=>{onlineStatus.textContent='连接失败';log('信令连接失败')};
+}
+
+function initWebRTC(isHost){
+pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+pc.onicecandidate=(e)=>{if(e.candidate&&ws?.readyState===1)ws.send(JSON.stringify({type:'candidate',candidate:e.candidate}))};
+pc.ondatachannel=(e)=>{dc=e.channel;setupDC()};
+if(isHost){
+dc=pc.createDataChannel('game');
+setupDC();
+pc.createOffer().then(offer=>{pc.setLocalDescription(offer);ws.send(JSON.stringify({type:'offer',sdp:offer}))});
+}
+}
+
+function handleSignal(msg){
+if(!pc)return;
+if(msg.type==='offer'){
+pc.setRemoteDescription(msg.sdp).then(()=>pc.createAnswer()).then(answer=>{
+pc.setLocalDescription(answer);
+ws.send(JSON.stringify({type:'answer',sdp:answer}));
+});
+}
+if(msg.type==='answer')pc.setRemoteDescription(msg.sdp);
+if(msg.type==='candidate')pc.addIceCandidate(msg.candidate).catch(()=>{});
+}
+
+function setupDC(){
+dc.onopen=()=>{
+log('数据通道已打开');
+remote.active=true;
+if(myRole==='host')onlineStatus.textContent=onlineStatus.textContent.replace('等待加入...','已连接');
+else onlineStatus.textContent+=' (已连接)';
+};
+dc.onclose=()=>{log('数据通道已关闭');remote.active=false};
+dc.onmessage=(e)=>{
+try{
+const data=JSON.parse(e.data);
+remote.x=data.x;
+remote.y=data.y;
+remote.sitting=!!data.sitting;
+remote.walking=!!data.walking;
+remote.idx=data.idx||0;
+remote.active=true;
+}catch{}
+};
+setInterval(()=>{
+if(dc?.readyState==='open'){
+dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}));
+}
+},40);
+}
 </script>
 </body>
 </html>
