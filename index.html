@@ -3,391 +3,361 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>webrtc Game</title>
+<title>WebRTC-Game</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none}
-html,body{width:100vw;height:100vh;overflow:hidden;font-family:sans-serif}
-#viewport{width:100vw;height:100vh;overflow:hidden;position:relative}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;font-family:Tahoma,"MS Sans Serif",Arial,sans-serif;background:#c8dcec}
+#viewport{width:100vw;height:100vh;overflow:hidden;position:relative;display:none}
 #game-area{width:2000px;height:1000px;position:relative;background-color:#f3e5f5}
 #game-canvas{display:block;background-color:#f3e5f5;background-image:url('./images/background.webp'),linear-gradient(#e1bee7 1px,transparent 1px),linear-gradient(90deg,#e1bee7 1px,transparent 1px);background-repeat:repeat,repeat,repeat;background-size:64px 64px,40px 40px,40px 40px;background-position:center;image-rendering:pixelated}
-#terminal-container{position:fixed;bottom:0;left:0;width:100%;height:30px;background:rgba(34,34,34,0.9);color:#fff;font-family:monospace;z-index:9999;display:flex;flex-direction:column;transition:height 0.3s ease}
-#terminal-container.expanded{height:180px}
-#terminal-header{padding:5px 10px;background:#333;cursor:pointer;display:flex;justify-content:space-between;flex-shrink:0}
-#terminal-body{flex:1;overflow-y:auto;padding:10px}
-#terminal-body::-webkit-scrollbar{width:8px}
-#terminal-body::-webkit-scrollbar-track{background:#111}
-#terminal-body::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
-#terminal-body::-webkit-scrollbar-thumb:hover{background:#777}
-#top-bar{position:fixed;top:0;left:0;width:100%;height:40px;background:linear-gradient(to bottom,#3a6ea5,#2b579a);display:flex;align-items:center;padding:0 12px;z-index:10000;gap:10px;box-shadow:0 2px 6px rgba(0,0,0,0.3);border-bottom:1px solid #1a3a6e}
-#btn-online{background:linear-gradient(to bottom,#5b9bd5,#3a7ab8);color:#fff;border:1px solid #2b579a;padding:5px 16px;border-radius:4px;font-size:13px;cursor:pointer;font-weight:bold;text-shadow:0 1px 1px rgba(0,0,0,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.25)}
-#btn-online:hover{background:linear-gradient(to bottom,#6baae0,#4a8ac8)}
-#btn-online:active{background:linear-gradient(to bottom,#3a7ab8,#2b579a)}
-#online-status{color:#e0eefc;font-size:12px;margin-left:6px;text-shadow:0 1px 1px rgba(0,0,0,0.4)}
-#online-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;align-items:center;justify-content:center}
-#online-modal.show{display:flex}
-.modal-box{background:linear-gradient(to bottom,#f0f4f8,#e4eaf0);border-radius:8px;padding:0;width:360px;max-width:92vw;color:#222;box-shadow:0 10px 40px rgba(0,0,0,0.45),0 0 0 1px #8ba3c0;overflow:hidden;font-family:Tahoma,Arial,sans-serif}
-.modal-header{background:linear-gradient(to bottom,#4a86c8,#2b579a);color:#fff;padding:10px 14px;font-size:14px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;text-shadow:0 1px 1px rgba(0,0,0,0.3)}
-.modal-header .close-btn{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1;padding:0 4px;opacity:0.85}
-.modal-header .close-btn:hover{opacity:1}
-.modal-body{padding:18px 20px 12px}
-.modal-body label{display:block;font-size:12px;margin-bottom:3px;color:#444;font-weight:bold}
-.modal-body input[type=text]{width:100%;padding:7px 10px;border-radius:4px;border:1px solid #a0b0c0;background:#fff;color:#222;font-size:13px;margin-bottom:12px;box-shadow:inset 0 1px 2px rgba(0,0,0,0.08)}
-.modal-body input[type=text]:focus{outline:none;border-color:#4a86c8;box-shadow:0 0 0 2px rgba(74,134,200,0.25)}
-.modal-body .row{display:flex;gap:18px;margin:10px 0 14px}
-.modal-body .row label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:normal;color:#333}
-.modal-footer{padding:10px 20px 16px;display:flex;gap:10px;justify-content:flex-end;background:#e8eef4;border-top:1px solid #c8d4e0}
-.modal-footer button{padding:7px 22px;border-radius:4px;font-size:13px;font-weight:bold;cursor:pointer;border:1px solid #8ba3c0}
-#btn-confirm{background:linear-gradient(to bottom,#5b9bd5,#3a7ab8);color:#fff;border-color:#2b579a;text-shadow:0 1px 1px rgba(0,0,0,0.25)}
-#btn-confirm:hover{background:linear-gradient(to bottom,#6baae0,#4a8ac8)}
-#btn-cancel{background:linear-gradient(to bottom,#f5f5f5,#e0e0e0);color:#333}
-#btn-cancel:hover{background:linear-gradient(to bottom,#fff,#ebebeb)}
-#loading-screen{position:fixed;inset:0;z-index:20000;background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#eee;font-family:sans-serif;transition:opacity .4s ease}
-#loading-screen.hidden{opacity:0;pointer-events:none}
-#loading-title{font-size:22px;margin-bottom:28px;letter-spacing:2px}
-#loading-bar-wrap{width:min(420px,80vw);height:18px;background:#333;border-radius:9px;overflow:hidden;border:1px solid #555}
-#loading-bar{height:100%;width:0%;background:linear-gradient(90deg,#5b9bd5,#3a7ab8);transition:width .15s ease}
-#loading-text{margin-top:14px;font-size:14px;color:#aaa}
+#terminal-container{position:fixed;bottom:0;left:0;width:100%;height:28px;background:#16324f;color:#b8d4ec;font-family:"Courier New",monospace;z-index:9999;display:none;flex-direction:column;border-top:1px solid #3a6a8c}
+#terminal-container.expanded{height:176px}
+#terminal-header{padding:4px 10px;background:linear-gradient(to bottom,#1e4060,#16324f);cursor:pointer;display:flex;justify-content:space-between;flex-shrink:0;font-size:11px;border-bottom:1px solid #0a1e30}
+#terminal-body{flex:1;overflow-y:auto;padding:6px 10px;background:#0c1c2c;color:#6ecf6e;font-size:11px}
+#terminal-body::-webkit-scrollbar{width:10px}
+#terminal-body::-webkit-scrollbar-track{background:#0a1520;border-left:1px solid #1a3048}
+#terminal-body::-webkit-scrollbar-thumb{background:linear-gradient(to bottom,#3a6a8c,#2a5070);border:1px solid #1a3048;border-radius:2px}
+#top-bar{position:fixed;top:0;left:0;width:100%;height:28px;background:linear-gradient(to bottom,#4a9ad8,#2a6aab);display:none;align-items:center;padding:0 10px;z-index:10000;gap:8px;border-bottom:1px solid #1a4a7a;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+#btn-online,#btn-back-mode{background:linear-gradient(to bottom,#eef6fc,#c5daf0);color:#1a3a5c;border:1px solid #5a8ab8;padding:2px 12px;font-size:11px;cursor:pointer;font-family:Tahoma,sans-serif;height:22px;border-radius:3px;box-shadow:0 1px 0 rgba(255,255,255,.6) inset}
+#btn-online:hover,#btn-back-mode:hover{background:linear-gradient(to bottom,#f5faff,#d4e8f8)}
+#btn-back-mode{display:none}
+#online-status{color:#e8f4ff;font-size:11px;margin-left:4px;text-shadow:0 1px 1px rgba(0,0,0,.3)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,35,55,.55);z-index:10001;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.icq-win{background:#e4eef8;border:1px solid #2a5a8a;box-shadow:0 4px 20px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.15) inset;width:330px;max-width:92vw;font-family:Tahoma,"MS Sans Serif",sans-serif;border-radius:4px;overflow:hidden}
+.icq-title{background:linear-gradient(to bottom,#5aabd8,#2a7ab8);color:#fff;padding:5px 10px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;height:24px;text-shadow:0 1px 1px rgba(0,0,0,.35);border-bottom:1px solid #1a4a7a}
+.icq-title .xbtn{background:linear-gradient(to bottom,#e87878,#c04040);border:1px solid #802020;color:#fff;width:17px;height:15px;font-size:11px;line-height:13px;padding:0;cursor:pointer;border-radius:2px;text-align:center;font-weight:bold}
+.icq-content{padding:16px 18px 14px;background:#e4eef8;color:#1a3a5c;font-size:12px}
+.icq-content label{display:block;font-size:11px;margin-bottom:3px;color:#2a4a6a;font-weight:bold}
+.icq-content input[type=text]{width:100%;padding:5px 8px;border:1px solid #7a9ab8;background:#fff;font-size:12px;margin-bottom:11px;font-family:Tahoma,sans-serif;border-radius:3px}
+.icq-content input[type=text]:focus{outline:none;border-color:#3a8ac8;box-shadow:0 0 0 2px rgba(58,138,200,.2)}
+.icq-content .row{display:flex;gap:20px;margin:8px 0 14px}
+.icq-content .row label{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:normal;color:#1a3a5c}
+.icq-btns{padding:10px 14px 14px;display:flex;gap:8px;justify-content:flex-end;background:#d4e4f0;border-top:1px solid #a8c0d8}
+.icq-btn{background:linear-gradient(to bottom,#f0f6fc,#c0d8f0);border:1px solid #5a8ab0;padding:4px 18px;font-size:12px;cursor:pointer;font-family:Tahoma,sans-serif;border-radius:3px;color:#1a3a5c;min-width:72px}
+.icq-btn:hover{background:linear-gradient(to bottom,#f8fcff,#d0e8f8)}
+.icq-btn.primary{background:linear-gradient(to bottom,#6ab0e0,#3a80c0);border-color:#2a6090;color:#fff;font-weight:bold;text-shadow:0 1px 1px rgba(0,0,0,.25)}
+.icq-btn.primary:hover{background:linear-gradient(to bottom,#7ac0f0,#4a90d0)}
+.spinner{width:38px;height:38px;border:3px solid #b8d4ec;border-top-color:#2a80c0;border-radius:50%;animation:spin .75s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.icq-status{font-size:11px;color:#4a6a8a;margin-top:4px;text-align:center;line-height:1.5}
+.room-tag{display:inline-block;margin-top:8px;padding:3px 10px;background:#d0e4f5;border:1px solid #7a9ab8;border-radius:3px;font-size:12px;color:#1a3a5c;font-weight:bold}
+#loading-screen{position:fixed;inset:0;z-index:20000;background:#1a3a5c;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#e0f0ff;font-family:Tahoma,sans-serif}
+#loading-screen.hidden{opacity:0;pointer-events:none;transition:opacity .4s}
+#loading-title{font-size:16px;margin-bottom:18px;letter-spacing:1px}
+#loading-bar-wrap{width:min(280px,80vw);height:14px;background:#0a1a2a;border:1px solid #4a7a9c;border-radius:3px;overflow:hidden}
+#loading-bar{height:100%;width:0%;background:linear-gradient(to right,#2a80c0,#50b0e0);transition:width .15s}
+#loading-text{margin-top:8px;font-size:11px;color:#8ab0d0}
+#waiting-overlay{display:none;position:fixed;inset:0;background:#c8dcec;z-index:15000;align-items:center;justify-content:center}
+#waiting-overlay.show{display:flex}
+#error-modal .icq-content{text-align:center;padding:20px 16px}
+#error-modal .err-icon{width:36px;height:36px;line-height:36px;margin:0 auto 10px;background:linear-gradient(to bottom,#e87878,#c04040);color:#fff;border-radius:50%;font-size:20px;font-weight:bold}
 </style>
 </head>
 <body>
-<div id="loading-screen">
-  <div id="loading-title">资源加载中</div>
-  <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
-  <div id="loading-text">0%</div>
-</div>
-<div id="top-bar">
-  <button id="btn-online">联机</button>
-  <span id="online-status">未连接</span>
-</div>
-<div id="online-modal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span>WebRTC连接</span>
-      <button class="close-btn" id="btn-close-modal">×</button>
-    </div>
-    <div class="modal-body">
-      <label>信令服务器地址 (wss:// 或 ws://)</label>
-      <input type="text" id="input-wss" placeholder="wss://test.hefengcy.com">
-      <label>房间号</label>
-      <input type="text" id="input-room" placeholder="输入房间号">
-      <div class="row">
-        <label><input type="radio" name="mode" value="create"> 创建房间</label>
-        <label><input type="radio" name="mode" value="join" checked> 加入房间</label>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button id="btn-cancel">取消</button>
-      <button id="btn-confirm">确定</button>
-    </div>
-  </div>
-</div>
-<div id="viewport">
-  <div id="game-area">
-    <canvas id="game-canvas" width="2000" height="1000"></canvas>
-    <div id="tips-container"></div>
-  </div>
-</div>
-<div id="terminal-container">
-  <div id="terminal-header" onclick="document.getElementById('terminal-container').classList.toggle('expanded')">
-    <span>日志终端 | 坐标: <span id="coords-val">X: 0, Y: 0</span></span>
-    <span>[展开/收起]</span>
-  </div>
-  <div id="terminal-body"></div>
-</div>
+<div id="loading-screen"><div id="loading-title">资源加载中</div><div id="loading-bar-wrap"><div id="loading-bar"></div></div><div id="loading-text">0%</div></div>
+<div id="mode-modal" class="modal-overlay show"><div class="icq-win"><div class="icq-title"><span>WebRTC Game</span></div><div class="icq-content" style="text-align:center;padding:22px 16px 18px"><div style="font-size:13px;color:#1a3a5c;margin-bottom:18px;font-weight:bold">请选择游戏模式</div><div style="display:flex;gap:12px;justify-content:center"><button class="icq-btn primary" id="btn-mode-single">单人模式</button><button class="icq-btn primary" id="btn-mode-online">联机模式</button></div></div></div></div>
+<div id="waiting-overlay"><div class="icq-win" style="width:300px"><div class="icq-title"><span>WebRTC Game - 连接中</span></div><div class="icq-content" style="text-align:center;padding:24px 16px 20px"><div class="spinner"></div><div style="font-size:13px;font-weight:bold;color:#1a3a5c;margin-bottom:6px" id="waiting-title">等待对方进入</div><div class="icq-status" id="waiting-status">正在连接信令服务器...</div><div id="waiting-room" class="room-tag" style="display:none"></div></div></div></div>
+<div id="error-modal" class="modal-overlay"><div class="icq-win" style="width:300px"><div class="icq-title"><span>WebRTC Game - 提示</span><button class="xbtn" id="btn-error-close">×</button></div><div class="icq-content"><div class="err-icon">!</div><div id="error-msg" style="font-size:12px;color:#1a3a5c;line-height:1.55"></div></div><div class="icq-btns"><button class="icq-btn primary" id="btn-error-ok">确定</button></div></div></div>
+<div id="top-bar"><button id="btn-online">联机</button><button id="btn-back-mode">返回模式选择</button><span id="online-status">未连接</span></div>
+<div id="online-modal" class="modal-overlay"><div class="icq-win"><div class="icq-title"><span>WebRTC Game - 联机设置</span><button class="xbtn" id="btn-close-modal">×</button></div><div class="icq-content"><label>信令服务器地址</label><input type="text" id="input-wss" placeholder="wss://test.hefengcy.com"><label>房间号</label><input type="text" id="input-room" placeholder="输入房间号"><div class="row"><label><input type="radio" name="mode" value="create"> 创建房间</label><label><input type="radio" name="mode" value="join" checked> 加入房间</label></div></div><div class="icq-btns"><button class="icq-btn" id="btn-cancel">取消</button><button class="icq-btn primary" id="btn-confirm">确定</button></div></div></div>
+<div id="viewport"><div id="game-area"><canvas id="game-canvas" width="2000" height="1000"></canvas><div id="tips-container"></div></div></div>
+<div id="terminal-container"><div id="terminal-header" onclick="document.getElementById('terminal-container').classList.toggle('expanded')"><span>日志 | 坐标: <span id="coords-val">X: 0, Y: 0</span></span><span>[展开/收起]</span></div><div id="terminal-body"></div></div>
 <script src="./virtual-controls.js" defer></script>
 <script>
-const viewport=document.getElementById('viewport'),gameArea=document.getElementById('game-area'),canvas=document.getElementById('game-canvas'),ctx=canvas.getContext('2d'),coordsVal=document.getElementById('coords-val'),logBody=document.getElementById('terminal-body'),tipsContainer=document.getElementById('tips-container');
+const viewport=document.getElementById('viewport'),canvas=document.getElementById('game-canvas'),ctx=canvas.getContext('2d'),coordsVal=document.getElementById('coords-val'),logBody=document.getElementById('terminal-body'),tipsContainer=document.getElementById('tips-container');
 ctx.imageSmoothingEnabled=false;
-const worldWidth=2000,worldHeight=1000,playerSize=120;
-let posX=800,posY=450,speed=5,keys=new Set(),isWalking=false,walkIdx=0,walkTimer=null,isSitting=false,currentFrameMs=100,walkStartTime=0,lastVTime=0,sitTarget=null,sitSeatIdx=-1;
+const worldWidth=2000,worldHeight=1000,playerSize=120,SPAWN_HOST={x:800,y:450},SPAWN_JOIN={x:1250,y:450};
+let posX=SPAWN_HOST.x,posY=SPAWN_HOST.y,speed=5,keys=new Set(),isWalking=false,walkIdx=0,walkTimer=null,isSitting=false,currentFrameMs=100,walkStartTime=0,lastVTime=0,sitTarget=null,sitSeatIdx=-1,sitItem=null;
 const moveKeys=new Set(['w','a','s','d']);
-let playerIdle='./images/player-z.webp',playerSit='./images/player-z/sit/sit.webp',walkFrames=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'],remoteIdle='./images/player-x.webp',remoteSit='./images/player-x/sit/sit.webp',remoteWalk=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
-const images={};
-const ALL_IMAGE_SRCS=['./images/background.webp','./images/player-z.webp','./images/player-z/sit/sit.webp','./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp','./images/player-x.webp','./images/player-x/sit/sit.webp','./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp','./images/carpet.webp','./images/desk.webp','./images/plant.webp','./images/chair.webp','./images/sofa.webp'];
-function loadImage(src){if(images[src])return images[src];const img=new Image();img.src=src;images[src]=img;return img;}
-function setPlayerAssets(role){if(role==='host'){playerIdle='./images/player-z.webp';playerSit='./images/player-z/sit/sit.webp';walkFrames=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];remoteIdle='./images/player-x.webp';remoteSit='./images/player-x/sit/sit.webp';remoteWalk=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];}else{playerIdle='./images/player-x.webp';playerSit='./images/player-x/sit/sit.webp';walkFrames=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];remoteIdle='./images/player-z.webp';remoteSit='./images/player-z/sit/sit.webp';remoteWalk=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'];}[playerIdle,playerSit,...walkFrames,remoteIdle,remoteSit,...remoteWalk].forEach(loadImage);}
-function preloadAllImages(){return new Promise(resolve=>{const total=ALL_IMAGE_SRCS.length;let loaded=0;const bar=document.getElementById('loading-bar'),text=document.getElementById('loading-text'),screen=document.getElementById('loading-screen');function update(){const pct=Math.round((loaded/total)*100);bar.style.width=pct+'%';text.textContent=pct+'%  ('+loaded+'/'+total+')';if(loaded>=total){setTimeout(()=>{screen.classList.add('hidden');setTimeout(()=>screen.remove(),450);resolve();},300);}}ALL_IMAGE_SRCS.forEach(src=>{const img=new Image();img.onload=img.onerror=()=>{images[src]=img;loaded++;update();};img.src=src;});});}
-const carpetData=[{id:'地毯',cx:1000,cy:500,w:400,h:300,src:'images/carpet.webp',level:-1}];
+let playerIdle='./images/player-z.webp',playerSit='./images/player-z/sit/sit.webp',playerSleep='./images/player-z/sleep/sleep.webp',walkFrames=['./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp'],remoteIdle='./images/player-x.webp',remoteSit='./images/player-x/sit/sit.webp',remoteSleep='./images/player-x/sleep/sleep.webp',remoteWalk=['./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp'];
+const images={},ALL_IMAGE_SRCS=['./images/background.webp','./images/player-z.webp','./images/player-z/sit/sit.webp','./images/player-z/sleep/sleep.webp','./images/player-z/walk/walk_0001.webp','./images/player-z/walk/walk_0002.webp','./images/player-x.webp','./images/player-x/sit/sit.webp','./images/player-x/sleep/sleep.webp','./images/player-x/walk/walk_0001.webp','./images/player-x/walk/walk_0002.webp','./images/carpet.webp','./images/desk.webp','./images/plant.webp','./images/chair.webp','./images/sofa.webp','./images/bed.webp'];
+function loadImage(src){if(images[src])return images[src];const img=new Image();img.src=src;images[src]=img;return img}
+function setPlayerAssets(role){const z=role==='host';playerIdle=`./images/player-${z?'z':'x'}.webp`;playerSit=`./images/player-${z?'z':'x'}/sit/sit.webp`;playerSleep=`./images/player-${z?'z':'x'}/sleep/sleep.webp`;walkFrames=[`./images/player-${z?'z':'x'}/walk/walk_0001.webp`,`./images/player-${z?'z':'x'}/walk/walk_0002.webp`];remoteIdle=`./images/player-${z?'x':'z'}.webp`;remoteSit=`./images/player-${z?'x':'z'}/sit/sit.webp`;remoteSleep=`./images/player-${z?'x':'z'}/sleep/sleep.webp`;remoteWalk=[`./images/player-${z?'x':'z'}/walk/walk_0001.webp`,`./images/player-${z?'x':'z'}/walk/walk_0002.webp`];[playerIdle,playerSit,playerSleep,...walkFrames,remoteIdle,remoteSit,remoteSleep,...remoteWalk].forEach(loadImage)}
+function preloadAllImages(){return new Promise(resolve=>{const total=ALL_IMAGE_SRCS.length;let loaded=0;const bar=document.getElementById('loading-bar'),text=document.getElementById('loading-text'),screen=document.getElementById('loading-screen');const tick=()=>{const pct=Math.round(loaded/total*100);bar.style.width=pct+'%';text.textContent=pct+'% ('+loaded+'/'+total+')';if(loaded>=total)setTimeout(()=>{screen.classList.add('hidden');setTimeout(()=>screen.remove(),450);resolve()},300)};ALL_IMAGE_SRCS.forEach(src=>{const img=new Image();img.onload=img.onerror=()=>{images[src]=img;loaded++;tick()};img.src=src})})}
+const carpetData=[{id:'地毯',cx:1000,cy:650,w:400,h:200,src:'images/carpet.webp',level:-1}];
 const furnitureData=[
-{id:'方桌',cx:900,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOffsetX1:-75,colOffsetX2:75,colOffsetY1:-25,colOffsetY2:-25,itemsOnTop:[{id:'盆栽',src:'images/plant.webp',w:80,h:80,offsetX:-30,offsetY:-50}]},
-{id:'方桌',cx:1120,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOffsetX1:-75,colOffsetX2:75,colOffsetY1:-25,colOffsetY2:-25,itemsOnTop:[]},
-{id:'盆栽',cx:1300,cy:400,w:80,h:80,src:'images/plant.webp',level:0,colOffsetX1:15,colOffsetX2:-5,colOffsetY1:-15,colOffsetY2:-25},
-{id:'椅子',cx:1450,cy:400,w:55,h:100,src:'images/chair.webp',level:0,colOffsetX1:15,colOffsetX2:-5,colOffsetY1:-15,colOffsetY2:-25},
-{id:'沙发',cx:600,cy:520,w:300,h:140,src:'images/sofa.webp',level:0,colOffsetX1:-130,colOffsetX2:130,colOffsetY1:-35,colOffsetY2:-20,seats:[{ox:-90,oy:-95},{ox:-10,oy:-95}]}
+{id:'方桌',cx:900,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOx:-130,colOy:-60,colW:260,colH:100,itemsOnTop:[{id:'盆栽',src:'images/plant.webp',w:80,h:80,offsetX:-30,offsetY:-50}]},
+{id:'方桌',cx:1120,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOx:-130,colOy:-60,colW:260,colH:100,itemsOnTop:[]},
+{id:'盆栽',cx:1300,cy:400,w:80,h:80,src:'images/plant.webp',level:0,colOx:-30,colOy:-35,colW:80,colH:50},
+{id:'椅子',cx:1200,cy:520,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},
+{id:'椅子',cx:1130,cy:350,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},
+{id:'沙发',cx:1000,cy:520,w:300,h:140,src:'images/sofa.webp',level:0,colOx:-180,colOy:-95,colW:360,colH:130,exitDir:'s',seats:[{ox:-90,oy:-95},{ox:-10,oy:-95}]},
+{id:'双人床',cx:600,cy:550,w:250,h:280,src:'images/bed.webp',level:0,colOx:-150,colOy:-150,colW:310,colH:250,exitDir:'e',seats:[{ox:-100,oy:-120},{ox:-20,oy:-120}]}
 ];
-function createTip(item){const tip=document.createElement('div');tip.textContent=item.id;tip.style.cssText=`position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,0)`;tipsContainer.appendChild(tip);item.tipElement=tip;}
-carpetData.forEach(item=>{loadImage(item.src);createTip(item);});
-furnitureData.forEach(item=>{loadImage(item.src);if(item.itemsOnTop)item.itemsOnTop.forEach(sub=>loadImage(sub.src));createTip(item);});
-function getFurnitureRects(){return furnitureData.map(i=>{const x1=i.colOffsetX1??-i.w/2,x2=i.colOffsetX2??i.w/2,y1=i.colOffsetY1??-i.h/2,y2=i.colOffsetY2??i.h/2;return{x:i.cx+x1,y:i.cy+y1,w:(i.cx+x2)-(i.cx+x1),h:(i.cy+y2)-(i.cy+y1)};});}
-function log(msg){const d=document.createElement('div');d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;logBody.prepend(d);}
-function isMoving(){return keys.has('w')||keys.has('s')||keys.has('a')||keys.has('d');}
-function startWalk(){if(isWalking||isSitting)return;isWalking=true;walkIdx=0;walkStartTime=Date.now();currentFrameMs=100;walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs);log('开始走路');}
-function stopWalk(){if(!isWalking)return;const elapsed=Date.now()-walkStartTime;if(elapsed<300){setTimeout(stopWalk,300-elapsed);return;}isWalking=false;clearInterval(walkTimer);walkTimer=null;log('停止走路');}
-function getChair(){return furnitureData.find(i=>i.id==='椅子');}
-function getSofa(){return furnitureData.find(i=>i.id==='沙发');}
-function isChairOccupied(){if(!remote.active||!remote.sitting)return false;const chair=getChair();if(!chair)return false;const dx=(remote.x+playerSize/2)-chair.cx,dy=(remote.y+playerSize/2)-chair.cy;return Math.sqrt(dx*dx+dy*dy)<80;}
-function isSofaSeatOccupied(seatIdx){const sofa=getSofa();if(!sofa||!sofa.seats||!remote.active||!remote.sitting)return false;const s=sofa.seats[seatIdx];const seatX=sofa.cx+s.ox,seatY=sofa.cy+s.oy;const dx=(remote.x+playerSize/2)-(seatX+playerSize/2),dy=(remote.y+playerSize/2)-(seatY+playerSize/2);return Math.sqrt(dx*dx+dy*dy)<55;}
-function getFreeSofaSeat(){const sofa=getSofa();if(!sofa||!sofa.seats)return null;for(let i=0;i<sofa.seats.length;i++){if(!isSofaSeatOccupied(i))return i;}return null;}
-function isNearChair(){const chair=getChair();if(!chair)return false;const pCx=posX+playerSize/2,pBottom=posY+playerSize,dx=pCx-chair.cx,dy=(posY+playerSize/2)-chair.cy,dist=Math.sqrt(dx*dx+dy*dy);return dist<110&&pBottom>chair.cy-10;}
-function isNearSofa(){const sofa=getSofa();if(!sofa)return false;const pCx=posX+playerSize/2,pBottom=posY+playerSize,dx=pCx-sofa.cx,dy=(posY+playerSize/2)-sofa.cy,dist=Math.sqrt(dx*dx+dy*dy);return dist<160&&pBottom>sofa.cy-20;}
-let remote={x:1100,y:450,sitting:false,walking:false,idx:0,active:false},lastRemoteLog=0,peerSynced=false;
+function createTip(item){
+const tip=document.createElement('div');
+tip.textContent=item.id;
+tip.style.cssText='position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,-100%)';
+tipsContainer.appendChild(tip);
+const action=document.createElement('div');
+action.textContent='';
+action.style.cssText='position:absolute;color:#ffeb3b;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:1000;pointer-events:none;transform:translate(-50%,0)';
+tipsContainer.appendChild(action);
+item.tipElement=tip;
+item.actionTipElement=action;
+}
+carpetData.forEach(i=>{loadImage(i.src);createTip(i)});
+furnitureData.forEach(i=>{loadImage(i.src);if(i.itemsOnTop)i.itemsOnTop.forEach(s=>loadImage(s.src));createTip(i)});
+function pointInRect(px,py,rx,ry,rw,rh){return px>=rx&&px<rx+rw&&py>=ry&&py<ry+rh}
+function getFurnitureRects(){return furnitureData.map(i=>{const w=i.colW??5,h=i.colH??5;if(w<=0||h<=0)return null;return{id:i.id,x:i.cx+(i.colOx??0),y:i.cy+(i.colOy??0),w,h}}).filter(Boolean)}
+function isPosFree(x,y){if(x<0||y<0||x>worldWidth-playerSize||y>worldHeight-playerSize)return false;const cx=x+playerSize/2,cy=y+playerSize/2;for(const r of getFurnitureRects())if(pointInRect(cx,cy,r.x,r.y,r.w,r.h))return false;return true}
+function resolveOutOfCollision(x,y){if(isPosFree(x,y))return{x,y};let px=x,py=y;const rects=getFurnitureRects();for(let s=0;s<24;s++){let stuck=false;const cx=px+playerSize/2,cy=py+playerSize/2;for(const r of rects){if(pointInRect(cx,cy,r.x,r.y,r.w,r.h)){stuck=true;const dx=cx-(r.x+r.w/2),dy=cy-(r.y+r.h/2);if(Math.abs(dx)>Math.abs(dy)){if(dx>0)px=r.x+r.w-playerSize/2+2;else px=r.x-playerSize/2-2}else{if(dy>0)py=r.y+r.h-playerSize/2+2;else py=r.y-playerSize/2-2}px=Math.max(0,Math.min(worldWidth-playerSize,px));py=Math.max(0,Math.min(worldHeight-playerSize,py))}}if(!stuck)break}if(isPosFree(px,py))return{x:px,y:py};for(let r=12;r<=240;r+=12){for(let a=0;a<16;a++){const ang=a/16*Math.PI*2,nx=Math.round(x+Math.cos(ang)*r),ny=Math.round(y+Math.sin(ang)*r);if(isPosFree(nx,ny))return{x:nx,y:ny}}}return{x:px,y:py}}
+function getExitCandidates(target,prevSeat){
+const dir=target.exitDir||'s',cx=target.cx,cy=target.cy,hw=target.w/2,hh=target.h/2,ps=playerSize/2;
+const map={
+s:[{x:cx-ps,y:cy+hh+10},{x:cx-ps-40,y:cy+hh+10},{x:cx-ps+40,y:cy+hh+10},{x:cx-ps,y:cy+hh+40},{x:cx-ps-60,y:cy+hh},{x:cx-ps+60,y:cy+hh}],
+n:[{x:cx-ps,y:cy-hh-playerSize-10},{x:cx-ps-40,y:cy-hh-playerSize-10},{x:cx-ps+40,y:cy-hh-playerSize-10},{x:cx-ps,y:cy-hh-playerSize-40}],
+e:[{x:cx+hw+10,y:cy-ps},{x:cx+hw+10,y:cy-ps-30},{x:cx+hw+10,y:cy-ps+30},{x:cx+hw+40,y:cy-ps}],
+w:[{x:cx-hw-playerSize-10,y:cy-ps},{x:cx-hw-playerSize-10,y:cy-ps-30},{x:cx-hw-playerSize-10,y:cy-ps+30},{x:cx-hw-playerSize-40,y:cy-ps}]
+};
+let list=map[dir]||map.s;
+if(target.id==='双人床'){
+const L=prevSeat===0;
+if(dir==='s')list=L?[{x:cx-ps-70,y:cy+hh-30},{x:cx-ps-40,y:cy+hh-10},{x:cx-ps,y:cy+hh+10},{x:cx-ps-90,y:cy+hh},{x:cx-ps-50,y:cy+hh+40}]:[{x:cx-ps+50,y:cy+hh-30},{x:cx-ps+20,y:cy+hh-10},{x:cx-ps,y:cy+hh+10},{x:cx-ps+90,y:cy+hh},{x:cx-ps+50,y:cy+hh+40}];
+}
+return list;
+}
+function findNearestFreeSpot(ox,oy,extra=[]){
+const base=[{x:ox,y:oy},{x:ox-40,y:oy},{x:ox+40,y:oy},{x:ox,y:oy-40},{x:ox,y:oy+40},{x:ox-60,y:oy-20},{x:ox+60,y:oy-20},{x:ox-60,y:oy+20},{x:ox+60,y:oy+20},{x:ox-80,y:oy},{x:ox+80,y:oy},{x:ox,y:oy+60},{x:ox,y:oy-60},{x:ox-50,y:oy+50},{x:ox+50,y:oy+50},{x:ox-50,y:oy-50},{x:ox+50,y:oy-50}];
+/* exitDir 候选点必须保持原方向，不能先经过 resolveOutOfCollision，否则东侧候选点被桌子挡住时可能被“推”到北侧。 */
+for(const c of extra)if(isPosFree(c.x,c.y))return{x:c.x,y:c.y};
+/* 指定方向没有直接可用的位置，再使用普通的最近空位搜索。 */
+const all=[...base];
+all.sort((a,b)=>((a.x-ox)**2+(a.y-oy)**2)-((b.x-ox)**2+(b.y-oy)**2));
+for(const c of all){const p=resolveOutOfCollision(c.x,c.y);if(isPosFree(p.x,p.y))return p}
+return resolveOutOfCollision(ox,oy)
+}
+function placeAt(x,y){const p=resolveOutOfCollision(x,y);posX=p.x;posY=p.y}
+function applySpawn(role){placeAt(role==='join'?SPAWN_JOIN.x:SPAWN_HOST.x,role==='join'?SPAWN_JOIN.y:SPAWN_HOST.y)}
+function log(msg){const d=document.createElement('div');d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;logBody.prepend(d)}
+function isMoving(){return keys.has('w')||keys.has('s')||keys.has('a')||keys.has('d')}
+function startWalk(){if(isWalking||isSitting)return;isWalking=true;walkIdx=0;walkStartTime=Date.now();currentFrameMs=100;walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs);log('开始走路')}
+function stopWalk(){if(!isWalking)return;const e=Date.now()-walkStartTime;if(e<300){setTimeout(stopWalk,300-e);return}isWalking=false;clearInterval(walkTimer);walkTimer=null;log('停止走路')}
+function getChairs(){return furnitureData.filter(i=>i.id==='椅子')}
+function getSofas(){return furnitureData.filter(i=>i.id==='沙发')}
+function getBeds(){return furnitureData.filter(i=>i.id==='双人床')}
+function getSofa(){return furnitureData.find(i=>i.id==='沙发')}
+function getBed(){return furnitureData.find(i=>i.id==='双人床')}
+function isItemOccupiedByRemote(item){if(!remote.active||!remote.sitting||!item)return false;if(item.seats){for(const s of item.seats){const dx=(remote.x+playerSize/2)-(item.cx+s.ox+playerSize/2),dy=(remote.y+playerSize/2)-(item.cy+s.oy+playerSize/2);if(Math.hypot(dx,dy)<55)return true}return false}return Math.hypot((remote.x+playerSize/2)-item.cx,(remote.y+playerSize/2)-item.cy)<80}
+function isSeatOccupied(item,idx){if(!item?.seats||!remote.active||!remote.sitting)return false;const s=item.seats[idx];return Math.hypot((remote.x+playerSize/2)-(item.cx+s.ox+playerSize/2),(remote.y+playerSize/2)-(item.cy+s.oy+playerSize/2))<55}
+function getFreeSeat(item){if(!item?.seats)return null;for(let i=0;i<item.seats.length;i++)if(!isSeatOccupied(item,i))return i;return null}
+function isNearFurniture(item,distLimit){if(!item)return false;const dist=Math.hypot((posX+playerSize/2)-item.cx,(posY+playerSize/2)-item.cy),limit=distLimit??(item.id==='椅子'?110:item.id==='双人床'?200:160);return dist<limit&&(posY+playerSize)>item.cy-(item.id==='椅子'?10:30)}
+function findNearestInteract(type){const list=type==='椅子'?getChairs():type==='沙发'?getSofas():getBeds();let best=null,bestD=1e9;for(const item of list){if(!isNearFurniture(item))continue;if(type==='椅子'?isItemOccupiedByRemote(item):getFreeSeat(item)===null)continue;const d=Math.hypot((posX+playerSize/2)-item.cx,(posY+playerSize/2)-item.cy);if(d<bestD){bestD=d;best=item}}return best}
+function isRemoteOnBed(){if(!remote.sitting)return false;for(const bed of getBeds())for(const s of bed.seats||[])if(Math.hypot((remote.x+playerSize/2)-(bed.cx+s.ox+playerSize/2),(remote.y+playerSize/2)-(bed.cy+s.oy+playerSize/2))<60)return true;return false}
+function isRemoteOnChair(){if(!remote.sitting)return false;for(const c of getChairs())if(Math.hypot((remote.x+playerSize/2)-c.cx,(remote.y+playerSize/2)-c.cy)<80)return true;return false}
+let remote={x:SPAWN_JOIN.x,y:SPAWN_JOIN.y,sitting:false,walking:false,idx:0,active:false},lastRemoteLog=0,peerSynced=false,isOnlineMode=false,gameReady=false;
+function canControl(){return !isOnlineMode||(gameReady&&peerSynced)}
+const modeModal=document.getElementById('mode-modal'),onlineModal=document.getElementById('online-modal'),waitingOverlay=document.getElementById('waiting-overlay'),errorModal=document.getElementById('error-modal'),btnOnline=document.getElementById('btn-online'),btnBackMode=document.getElementById('btn-back-mode'),onlineStatus=document.getElementById('online-status'),inputWss=document.getElementById('input-wss');
+function showGame(){document.getElementById('viewport').style.display='block';document.getElementById('top-bar').style.display='flex';document.getElementById('terminal-container').style.display='flex';waitingOverlay.classList.remove('show');modeModal.classList.remove('show');onlineModal.classList.remove('show');errorModal.classList.remove('show');if(myRole)applySpawn(myRole);else placeAt(SPAWN_HOST.x,SPAWN_HOST.y)}
+function hideGame(){document.getElementById('viewport').style.display='none';document.getElementById('top-bar').style.display='none';document.getElementById('terminal-container').style.display='none'}
+function showError(msg){document.getElementById('error-msg').textContent=msg;errorModal.classList.add('show');waitingOverlay.classList.remove('show')}
+function setWaitingInfo(title,status,room){document.getElementById('waiting-title').textContent=title;document.getElementById('waiting-status').textContent=status;const el=document.getElementById('waiting-room');if(room){el.style.display='inline-block';el.textContent='房间号：'+room}else{el.style.display='none';el.textContent=''}}
+function backToModeSelect(reason){fullDisconnect(reason||'已断开');isOnlineMode=false;gameReady=false;peerSynced=false;hideGame();waitingOverlay.classList.remove('show');onlineModal.classList.remove('show');errorModal.classList.remove('show');btnOnline.style.display='inline-block';btnBackMode.style.display='none';onlineStatus.textContent='未连接';modeModal.classList.add('show')}
 window.addEventListener('keydown',e=>{
 const k=e.key.toLowerCase();
 if(k==='v'){
 const now=Date.now();if(now-lastVTime<400)return;lastVTime=now;
-if(myRole&&!peerSynced){log('等待对方状态同步中...');return;}
+if(!canControl()){if(isOnlineMode)log('等待连接完成...');return}
 if(isSitting){
-isSitting=false;sitTarget=null;sitSeatIdx=-1;
-const chair=getChair(),sofa=getSofa();
-let target=null;
-if(chair&&Math.abs(posX-(chair.cx-playerSize/2))<40&&Math.abs(posY-(chair.cy-100))<40)target=chair;
-else if(sofa)target=sofa;
-if(target){
-const candidates=[{x:target.cx-playerSize/2,y:target.cy+5},{x:target.cx-playerSize/2-50,y:target.cy+5},{x:target.cx-playerSize/2+50,y:target.cy+5},{x:target.cx-playerSize/2,y:target.cy+70}];
-const rects=getFurnitureRects();let placed=false;
-for(const c of candidates){let hit=false;for(const r of rects){if(checkCollision(c.x,c.y,playerSize,playerSize,r.x,r.y,r.w,r.h)){hit=true;break;}}if(!hit){posX=Math.max(0,Math.min(worldWidth-playerSize,c.x));posY=Math.max(0,Math.min(worldHeight-playerSize,c.y));placed=true;break;}}
-if(!placed){posX=target.cx-playerSize/2;posY=target.cy+5;}
-}
-log('站起');
+const prevSeat=sitSeatIdx,target=sitItem;isSitting=false;sitTarget=null;sitSeatIdx=-1;sitItem=null;
+if(target){const candidates=getExitCandidates(target,prevSeat);const free=findNearestFreeSpot(posX,posY,candidates);posX=free.x;posY=free.y}
+log('起身');
 }else{
-const chair=getChair(),sofa=getSofa();
-if(chair&&isNearChair()){
-if(isChairOccupied()){log('椅子已有人');return;}
-isSitting=true;sitTarget='chair';sitSeatIdx=-1;posX=chair.cx-playerSize/2;posY=chair.cy-100;keys.clear();stopWalk();log('坐下(椅子)');
-}else if(sofa&&isNearSofa()){
-const free=getFreeSofaSeat();
-if(free===null){log('沙发已满');return;}
-const s=sofa.seats[free];
-isSitting=true;sitTarget='sofa';sitSeatIdx=free;posX=sofa.cx+s.ox;posY=sofa.cy+s.oy;keys.clear();stopWalk();log(free===0?'坐下(沙发左)':'坐下(沙发右)');
-}
+const chair=findNearestInteract('椅子'),sofa=findNearestInteract('沙发'),bed=findNearestInteract('双人床');
+if(chair){isSitting=true;sitTarget='chair';sitItem=chair;sitSeatIdx=-1;placeAt(chair.cx-playerSize/2,chair.cy-100);keys.clear();stopWalk();log('坐下(椅子)')}
+else if(sofa){const free=getFreeSeat(sofa);if(free===null){log('沙发已满');return}const s=sofa.seats[free];isSitting=true;sitTarget='sofa';sitItem=sofa;sitSeatIdx=free;placeAt(sofa.cx+s.ox,sofa.cy+s.oy);keys.clear();stopWalk();log(free===0?'坐下(沙发左)':'坐下(沙发右)')}
+else if(bed){const free=getFreeSeat(bed);if(free===null){log('床已满');return}const s=bed.seats[free];isSitting=true;sitTarget='bed';sitItem=bed;sitSeatIdx=free;placeAt(bed.cx+s.ox,bed.cy+s.oy);keys.clear();stopWalk();log(free===0?'睡觉(床左)':'睡觉(床右)')}
 }
 return;
 }
-if(isSitting)return;
-if(!keys.has(k)){keys.add(k);log(`按下按键: ${e.key}`);if(moveKeys.has(k))startWalk();}
+if(isSitting||!canControl())return;
+if(!keys.has(k)){keys.add(k);log('按下按键: '+e.key);if(moveKeys.has(k))startWalk()}
 });
-window.addEventListener('keyup',e=>{if(isSitting)return;const k=e.key.toLowerCase();keys.delete(k);if(moveKeys.has(k)&&!isMoving())stopWalk();});
-window.addEventListener('blur',()=>{keys.clear();stopWalk();log('窗口失去焦点，已重置按键');});
-document.addEventListener('visibilitychange',()=>{
-if(document.hidden){keys.clear();stopWalk();}
-else{
-if(dc&&dc.readyState==='open'){
-try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}));}catch{}
-sendStateBurst();
-}
-}
-});
-function checkCollision(x,y,w,h,rx,ry,rw,rh){return x<rx+rw&&x+w>rx&&y<ry+rh&&y+h>ry;}
+window.addEventListener('keyup',e=>{if(isSitting)return;const k=e.key.toLowerCase();keys.delete(k);if(moveKeys.has(k)&&!isMoving())stopWalk()});
+window.addEventListener('blur',()=>{keys.clear();stopWalk()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();stopWalk()}else if(dc&&dc.readyState==='open'){try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}))}catch{}sendStateBurst()}});
 function update(){
-if(isWalking){const t=100;if(t!==currentFrameMs){currentFrameMs=t;clearInterval(walkTimer);walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs);}}
-if(isSitting){
-if(sitTarget==='chair'){const chair=getChair();if(chair){posX=chair.cx-playerSize/2;posY=chair.cy-100;}}
-else if(sitTarget==='sofa'&&sitSeatIdx>=0){const sofa=getSofa();if(sofa&&sofa.seats&&sofa.seats[sitSeatIdx]){const s=sofa.seats[sitSeatIdx];posX=sofa.cx+s.ox;posY=sofa.cy+s.oy;}}
+if(isWalking){if(100!==currentFrameMs){currentFrameMs=100;clearInterval(walkTimer);walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs)}}
+if(isSitting&&sitItem){
+if(sitTarget==='chair'){posX=sitItem.cx-playerSize/2;posY=sitItem.cy-100}
+else if((sitTarget==='sofa'||sitTarget==='bed')&&sitSeatIdx>=0&&sitItem.seats?.[sitSeatIdx]){const s=sitItem.seats[sitSeatIdx];posX=sitItem.cx+s.ox;posY=sitItem.cy+s.oy}
 }else{
-let nextX=posX,nextY=posY;
-if(keys.has('w'))nextY-=speed;if(keys.has('s'))nextY+=speed;if(keys.has('a'))nextX-=speed;if(keys.has('d'))nextX+=speed;
+let nx=posX,ny=posY;
+if(keys.has('w'))ny-=speed;
+if(keys.has('s'))ny+=speed;
+if(keys.has('a'))nx-=speed;
+if(keys.has('d'))nx+=speed;
 const maxX=worldWidth-playerSize,maxY=worldHeight-playerSize;
-nextX=Math.max(0,Math.min(maxX,nextX));nextY=Math.max(0,Math.min(maxY,nextY));
-const pBoxW=playerSize,pBoxH=playerSize,rects=getFurnitureRects();
-let canMoveX=true,canMoveY=true;
-for(const r of rects){if(checkCollision(nextX,posY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveX=false;break;}}
-if(canMoveX)posX=nextX;
-for(const r of rects){if(checkCollision(posX,nextY,pBoxW,pBoxH,r.x,r.y,r.w,r.h)){canMoveY=false;break;}}
-if(canMoveY)posY=nextY;
-let stuck=true,safety=0;
-while(stuck&&safety<10){stuck=false;safety++;for(const r of rects){const pBox={x:posX,y:posY,w:pBoxW,h:pBoxH};if(checkCollision(pBox.x,pBox.y,pBox.w,pBox.h,r.x,r.y,r.w,r.h)){stuck=true;const overlapX=Math.min(pBox.x+pBox.w-r.x,r.x+r.w-pBox.x),overlapY=Math.min(pBox.y+pBox.h-r.y,r.y+r.h-pBox.y);if(overlapX<overlapY){if(pBox.x+pBox.w/2<r.x+r.w/2)posX-=overlapX;else posX+=overlapX;}else{if(pBox.y+pBox.h/2<r.y+r.h/2)posY-=overlapY;else posY+=overlapY;}posX=Math.max(0,Math.min(maxX,posX));posY=Math.max(0,Math.min(maxY,posY));}}}
+nx=Math.max(0,Math.min(maxX,nx));ny=Math.max(0,Math.min(maxY,ny));
+const rects=getFurnitureRects();
+const tryX=nx+playerSize/2,tryY=posY+playerSize/2;
+let okX=true,okY=true;
+for(const r of rects)if(pointInRect(tryX,tryY,r.x,r.y,r.w,r.h)){okX=false;break}
+if(okX)posX=nx;
+const tryX2=posX+playerSize/2,tryY2=ny+playerSize/2;
+for(const r of rects)if(pointInRect(tryX2,tryY2,r.x,r.y,r.w,r.h)){okY=false;break}
+if(okY)posY=ny;
+for(let s=0;s<10;s++){let stuck=false;const cx=posX+playerSize/2,cy=posY+playerSize/2;for(const r of rects){if(pointInRect(cx,cy,r.x,r.y,r.w,r.h)){stuck=true;const dx=cx-(r.x+r.w/2),dy=cy-(r.y+r.h/2);if(Math.abs(dx)>Math.abs(dy)){if(dx>0)posX=r.x+r.w-playerSize/2+2;else posX=r.x-playerSize/2-2}else{if(dy>0)posY=r.y+r.h-playerSize/2+2;else posY=r.y-playerSize/2-2}posX=Math.max(0,Math.min(maxX,posX));posY=Math.max(0,Math.min(maxY,posY))}}if(!stuck)break}
 }
 const currentPBox={x:posX,y:posY,w:playerSize,h:playerSize},threshold=30;
-carpetData.forEach(item=>{item.tipElement.style.display='none';item.tipElement.textContent=item.id;item.tipElement.style.color='#fff';});
-furnitureData.forEach(item=>{item.tipElement.style.display='none';item.tipElement.style.color='#fff';let displayName=item.id;if(item.itemsOnTop?.length){const topNames=item.itemsOnTop.map(s=>s.id).filter(Boolean);if(topNames.length)displayName+=' '+topNames.join(' ');}item.tipElement.textContent=displayName;});
-const allInteractives=[...carpetData,...furnitureData];
-const activeItems=allInteractives.filter(item=>{const rect={x:item.cx-item.w/2,y:item.cy-item.h/2,w:item.w,h:item.h};const pRect={x:rect.x-threshold,y:rect.y-threshold,w:rect.w+2*threshold,h:rect.h+2*threshold};return checkCollision(currentPBox.x,currentPBox.y,currentPBox.w,currentPBox.h,pRect.x,pRect.y,pRect.w,pRect.h);});
-const clusters=[];activeItems.forEach(item=>{let added=false;for(const cluster of clusters){if(cluster.some(ci=>{const dx=ci.cx-item.cx,dy=ci.cy-item.cy;return Math.sqrt(dx*dx+dy*dy)<180;})){cluster.push(item);added=true;break;}}if(!added)clusters.push([item]);});
-clusters.forEach(cluster=>{if(cluster.length===1){cluster[0].tipElement.style.left=cluster[0].cx+'px';cluster[0].tipElement.style.top=(cluster[0].cy-cluster[0].h/2-25)+'px';cluster[0].tipElement.style.display='block';}else{const maxLevel=Math.max(...cluster.map(i=>i.level));const topItems=cluster.filter(i=>i.level===maxLevel);const combinedName=Array.from(new Set(topItems.flatMap(i=>{let names=[i.id];if(i.itemsOnTop)i.itemsOnTop.forEach(sub=>{if(sub.id)names.push(sub.id);});return names;}))).join(' ');const primary=topItems[0];const avgCx=topItems.reduce((s,i)=>s+i.cx,0)/topItems.length;const minTopY=Math.min(...topItems.map(i=>i.cy-i.h/2));primary.tipElement.textContent=combinedName;primary.tipElement.style.left=avgCx+'px';primary.tipElement.style.top=(minTopY-25)+'px';primary.tipElement.style.display='block';}});
-const chair=getChair();
-if(chair?.tipElement){const nearBottom=!isSitting&&isNearChair();if(isSitting&&sitTarget==='chair'||nearBottom){chair.tipElement.textContent=isSitting?'V 键站起':(isChairOccupied()?'椅子已有人':'V 键坐下');chair.tipElement.style.color=isChairOccupied()&&!isSitting?'#ff8a80':'#ffeb3b';chair.tipElement.style.left=chair.cx+'px';chair.tipElement.style.top=(chair.cy-chair.h/2-25)+'px';chair.tipElement.style.display='block';}}
-const sofa=getSofa();
-if(sofa?.tipElement){const near=!isSitting&&isNearSofa();if((isSitting&&sitTarget==='sofa')||near){const free=getFreeSofaSeat();sofa.tipElement.textContent=isSitting?'V 键站起':(free===null?'沙发已满':'V 键坐下');sofa.tipElement.style.color=free===null&&!isSitting?'#ff8a80':'#ffeb3b';sofa.tipElement.style.left=sofa.cx+'px';sofa.tipElement.style.top=(sofa.cy-sofa.h/2-25)+'px';sofa.tipElement.style.display='block';}}
+carpetData.forEach(i=>{
+i.tipElement.style.display='none';
+i.actionTipElement.style.display='none';
+i.tipElement.textContent=i.id;
+i.tipElement.style.color='#fff';
+});
+furnitureData.forEach(i=>{
+i.tipElement.style.display='none';
+i.actionTipElement.style.display='none';
+i.tipElement.style.color='#fff';
+let n=i.id;
+if(i.itemsOnTop?.length){
+const t=i.itemsOnTop.map(s=>s.id).filter(Boolean);
+if(t.length)n+=' '+t.join(' ');
+}
+i.tipElement.textContent=n;
+});
+const active=[...carpetData,...furnitureData].filter(i=>{
+const r={x:i.cx-i.w/2,y:i.cy-i.h/2,w:i.w,h:i.h};
+return posX<r.x+r.w+threshold&&posX+playerSize>r.x-threshold&&posY<r.y+r.h+threshold&&posY+playerSize>r.y-threshold
+});
+const clusters=[];
+active.forEach(item=>{
+let add=false;
+for(const c of clusters)if(c.some(ci=>Math.hypot(ci.cx-item.cx,ci.cy-item.cy)<180)){c.push(item);add=true;break}
+if(!add)clusters.push([item])
+});
+clusters.forEach(c=>{
+if(c.length===1){
+const item=c[0];
+item.tipElement.style.left=item.cx+'px';
+item.tipElement.style.top=(item.cy-item.h/2-8)+'px';
+item.tipElement.style.display='block';
+}else{
+const maxL=Math.max(...c.map(i=>i.level)),tops=c.filter(i=>i.level===maxL);
+const name=[...new Set(tops.flatMap(i=>{
+const n=[i.id];
+i.itemsOnTop?.forEach(s=>{if(s.id)n.push(s.id)});
+return n
+}))].join(' ');
+const p=tops[0],ax=tops.reduce((s,i)=>s+i.cx,0)/tops.length;
+const minT=Math.min(...tops.map(i=>i.cy-i.h/2));
+p.tipElement.textContent=name;
+p.tipElement.style.left=ax+'px';
+p.tipElement.style.top=(minT-8)+'px';
+p.tipElement.style.display='block';
+}
+});
+getChairs().forEach(chair=>{
+if(!chair.tipElement)return;
+const near=!isSitting&&isNearFurniture(chair),here=isSitting&&sitTarget==='chair'&&sitItem===chair;
+if(here||near){
+const occ=isItemOccupiedByRemote(chair);
+chair.actionTipElement.textContent=here?'V 键起身':(occ?'椅子已有人':'V 键坐下');
+chair.actionTipElement.style.color=occ&&!here?'#ff8a80':'#ffeb3b';
+chair.actionTipElement.style.left=chair.cx+'px';
+chair.actionTipElement.style.top=(chair.cy+chair.h/2+8)+'px';
+chair.actionTipElement.style.display='block';
+}
+});
+getSofas().forEach(sofa=>{
+if(!sofa.tipElement)return;
+const near=!isSitting&&isNearFurniture(sofa),here=isSitting&&sitTarget==='sofa'&&sitItem===sofa;
+if(here||near){
+const free=getFreeSeat(sofa);
+sofa.actionTipElement.textContent=here?'V 键起身':(free===null?'沙发已满':'V 键坐下');
+sofa.actionTipElement.style.color=free===null&&!here?'#ff8a80':'#ffeb3b';
+sofa.actionTipElement.style.left=sofa.cx+'px';
+sofa.actionTipElement.style.top=(sofa.cy+sofa.h/2+8)+'px';
+sofa.actionTipElement.style.display='block';
+}
+});
+getBeds().forEach(bed=>{
+if(!bed.tipElement)return;
+const near=!isSitting&&isNearFurniture(bed,200),here=isSitting&&sitTarget==='bed'&&sitItem===bed;
+if(here||near){
+const free=getFreeSeat(bed);
+bed.actionTipElement.textContent=here?'V 键起身':(free===null?'床已满':'V 键睡觉');
+bed.actionTipElement.style.color=free===null&&!here?'#ff8a80':'#ffeb3b';
+bed.actionTipElement.style.left=bed.cx+'px';
+bed.actionTipElement.style.top=(bed.cy+bed.h/2+8)+'px';
+bed.actionTipElement.style.display='block';
+}
+});
+
 ctx.clearRect(0,0,canvas.width,canvas.height);
 const renderList=[];
-carpetData.forEach((item,i)=>renderList.push({type:'carpet',data:item,y:item.cy+item.h/2,level:item.level,originalIndex:i}));
-furnitureData.forEach((item,i)=>renderList.push({type:'furniture',data:item,y:item.cy+item.h/2,level:item.level,originalIndex:i}));
-const chairBottom=chair?(chair.cy+chair.h/2):0,sofaBottom=sofa?(sofa.cy+sofa.h/2):0;
-const pBottom=isSitting?(sitTarget==='chair'?chairBottom:sofaBottom):(currentPBox.y+currentPBox.h);
-renderList.push({type:'player',y:pBottom,level:0,originalIndex:9999});
-if(remote.active){const rBottom=remote.sitting?(Math.abs(remote.x-(chair?chair.cx-playerSize/2:0))<60?chairBottom:sofaBottom):(remote.y+playerSize);renderList.push({type:'remote',y:rBottom,level:0,originalIndex:9998});}
-renderList.sort((a,b)=>{if(a.level!==b.level)return a.level-b.level;if(a.y!==b.y)return a.y-b.y;if(a.type==='player'&&b.type!=='player')return 1;if(a.type!=='player'&&b.type==='player')return -1;return a.originalIndex-b.originalIndex;});
+carpetData.forEach((item,i)=>renderList.push({type:'carpet',data:item,y:item.cy+item.h/2,level:item.level,oi:i}));
+furnitureData.forEach((item,i)=>renderList.push({type:'furniture',data:item,y:item.cy+item.h/2,level:item.level,oi:i}));
+const sofa=getSofa(),bed=getBed(),chairBottom=sitItem&&sitTarget==='chair'?sitItem.cy+sitItem.h/2:0,sofaBottom=sofa?sofa.cy+sofa.h/2:0,bedBottom=bed?bed.cy+bed.h/2:0;
+const pBottom=isSitting?(sitTarget==='chair'?chairBottom:sitTarget==='sofa'?sofaBottom:bedBottom):(currentPBox.y+currentPBox.h);
+renderList.push({type:'player',y:pBottom,level:0,oi:9999});
+if(remote.active){let rBottom=remote.y+playerSize;if(remote.sitting){if(isRemoteOnBed())rBottom=bedBottom;else if(isRemoteOnChair()){for(const c of getChairs())if(Math.hypot((remote.x+playerSize/2)-c.cx,(remote.y+playerSize/2)-c.cy)<80){rBottom=c.cy+c.h/2;break}}else rBottom=sofaBottom}renderList.push({type:'remote',y:rBottom,level:0,oi:9998})}
+renderList.sort((a,b)=>a.level!==b.level?a.level-b.level:a.y!==b.y?a.y-b.y:a.type==='player'&&b.type!=='player'?1:a.type!=='player'&&b.type==='player'?-1:a.oi-b.oi);
 renderList.forEach(item=>{
-if(item.type==='carpet'){const c=item.data,img=images[c.src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h);else{ctx.fillStyle='#d7ccc8';ctx.fillRect(Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h);}}
-else if(item.type==='furniture'){const f=item.data,img=images[f.src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h);else{ctx.fillStyle='#8B4513';ctx.fillRect(Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h);}if(f.itemsOnTop)f.itemsOnTop.forEach(sub=>{const subImg=images[sub.src],subX=f.cx+(sub.offsetX||0)-sub.w/2,subY=f.cy+(sub.offsetY||0)-sub.h/2;if(subImg?.complete&&subImg.naturalWidth)ctx.drawImage(subImg,Math.round(subX),Math.round(subY),sub.w,sub.h);else{ctx.fillStyle='#555';ctx.fillRect(Math.round(subX),Math.round(subY),sub.w,sub.h);}});}
-else if(item.type==='player'){const src=isSitting?playerSit:(isWalking?walkFrames[walkIdx]:playerIdle),img=images[src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(posX),Math.round(posY),playerSize,playerSize);else{ctx.fillStyle='#8A2BE2';ctx.fillRect(Math.round(posX),Math.round(posY),playerSize,playerSize);}}
-else if(item.type==='remote'){const src=remote.sitting?remoteSit:(remote.walking?remoteWalk[remote.idx%remoteWalk.length]:remoteIdle),img=images[src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(remote.x),Math.round(remote.y),playerSize,playerSize);else{ctx.fillStyle='#e91e63';ctx.fillRect(Math.round(remote.x),Math.round(remote.y),playerSize,playerSize);}}
+if(item.type==='carpet'){const c=item.data,img=images[c.src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h);else{ctx.fillStyle='#d7ccc8';ctx.fillRect(Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h)}}
+else if(item.type==='furniture'){const f=item.data,img=images[f.src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h);else{ctx.fillStyle='#8B4513';ctx.fillRect(Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h)}f.itemsOnTop?.forEach(sub=>{const si=images[sub.src],sx=f.cx+(sub.offsetX||0)-sub.w/2,sy=f.cy+(sub.offsetY||0)-sub.h/2;if(si?.complete&&si.naturalWidth)ctx.drawImage(si,Math.round(sx),Math.round(sy),sub.w,sub.h);else{ctx.fillStyle='#555';ctx.fillRect(Math.round(sx),Math.round(sy),sub.w,sub.h)}})}
+else if(item.type==='player'){const src=isSitting?(sitTarget==='bed'?playerSleep:playerSit):(isWalking?walkFrames[walkIdx]:playerIdle),img=images[src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(posX),Math.round(posY),playerSize,playerSize);else{ctx.fillStyle='#8A2BE2';ctx.fillRect(Math.round(posX),Math.round(posY),playerSize,playerSize)}}
+else if(item.type==='remote'){const src=remote.sitting?(isRemoteOnBed()?remoteSleep:remoteSit):(remote.walking?remoteWalk[remote.idx%remoteWalk.length]:remoteIdle),img=images[src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(remote.x),Math.round(remote.y),playerSize,playerSize);else{ctx.fillStyle='#e91e63';ctx.fillRect(Math.round(remote.x),Math.round(remote.y),playerSize,playerSize)}}
 });
-if(!isSitting){if(isMoving()){if(!isWalking)startWalk();}else if(isWalking)stopWalk();}
+if(!isSitting){if(isMoving()){if(!isWalking)startWalk()}else if(isWalking)stopWalk()}
 coordsVal.textContent=`X: ${Math.round(posX)}, Y: ${Math.round(posY)}`;
 viewport.scrollTo({left:posX+playerSize/2-window.innerWidth/2,top:posY+playerSize/2-window.innerHeight/2,behavior:'auto'});
 requestAnimationFrame(update);
 }
-const btnOnline=document.getElementById('btn-online'),onlineModal=document.getElementById('online-modal'),btnConfirm=document.getElementById('btn-confirm'),btnCancel=document.getElementById('btn-cancel'),btnCloseModal=document.getElementById('btn-close-modal'),onlineStatus=document.getElementById('online-status'),inputWss=document.getElementById('input-wss');
 let ws=null,pc=null,dc=null,myRole=null,currentRoom='',offerHandled=false,pendingCandidates=[],signalPosTimer=null,keepAliveTimer=null,disconnectTimer=null;
-const savedWss=localStorage.getItem('game_wss_url');inputWss.value=savedWss||'wss://test.hefengcy.com';
-btnOnline.onclick=()=>onlineModal.classList.add('show');
-btnCancel.onclick=btnCloseModal.onclick=()=>onlineModal.classList.remove('show');
-btnConfirm.onclick=()=>{const wssUrl=inputWss.value.trim(),room=document.getElementById('input-room').value.trim(),mode=document.querySelector('input[name=mode]:checked').value;if(!wssUrl||!room){alert('请填写服务器地址和房间号');return;}localStorage.setItem('game_wss_url',wssUrl);onlineModal.classList.remove('show');connectSignaling(wssUrl,room,mode);};
-function sendSignal(obj){if(ws&&ws.readyState===1)ws.send(JSON.stringify(obj));}
-function sendPosViaSignal(){
-if(!ws||ws.readyState!==1||!currentRoom)return;
-if(dc&&dc.readyState==='open')return;
-sendSignal({type:'pos',room:currentRoom,x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx});
-}
-function sendStateNow(){
-if(dc&&dc.readyState==='open'){
-try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}));}catch{}
-}
-}
-function sendStateBurst(){
-sendStateNow();
-for(let i=1;i<=8;i++) setTimeout(sendStateNow,i*40);
-}
-function startKeepAlive(){
-if(keepAliveTimer) clearInterval(keepAliveTimer);
-keepAliveTimer=setInterval(()=>{
-if(ws&&ws.readyState===1&&currentRoom){
-sendSignal({type:'ping',room:currentRoom});
-}
-},15000);
-}
-async function flushPendingCandidates(){
-while(pendingCandidates.length){
-const c=pendingCandidates.shift();
-try{await pc.addIceCandidate(c);}catch(e){log('添加 candidate 失败: '+e.message);}
-}
-}
-function fullDisconnect(reason){
-if(signalPosTimer){clearInterval(signalPosTimer);signalPosTimer=null;}
-if(keepAliveTimer){clearInterval(keepAliveTimer);keepAliveTimer=null;}
-if(disconnectTimer){clearTimeout(disconnectTimer);disconnectTimer=null;}
-if(dc){try{dc.close();}catch{}dc=null;}
-if(pc){try{pc.close();}catch{}pc=null;}
-if(ws){try{ws.close();}catch{}ws=null;}
-remote.active=false;remote.sitting=false;remote.walking=false;peerSynced=false;
-offerHandled=false;pendingCandidates=[];myRole=null;currentRoom='';
-onlineStatus.textContent='未连接';
-log(reason||'已断开连接');
-}
+inputWss.value=localStorage.getItem('game_wss_url')||'wss://test.hefengcy.com';
+document.getElementById('btn-mode-single').onclick=()=>{isOnlineMode=false;gameReady=true;peerSynced=true;modeModal.classList.remove('show');btnOnline.style.display='none';btnBackMode.style.display='inline-block';onlineStatus.textContent='单人模式';applySpawn('host');showGame();log('已进入单人模式')};
+document.getElementById('btn-mode-online').onclick=()=>{isOnlineMode=true;gameReady=false;peerSynced=false;modeModal.classList.remove('show');onlineModal.classList.add('show')};
+btnBackMode.onclick=()=>backToModeSelect('返回模式选择');
+document.getElementById('btn-error-ok').onclick=document.getElementById('btn-error-close').onclick=()=>{errorModal.classList.remove('show');modeModal.classList.add('show')};
+btnOnline.onclick=()=>{if(isOnlineMode)onlineModal.classList.add('show')};
+document.getElementById('btn-cancel').onclick=document.getElementById('btn-close-modal').onclick=()=>{onlineModal.classList.remove('show');if(!myRole)modeModal.classList.add('show')};
+document.getElementById('btn-confirm').onclick=()=>{const wssUrl=inputWss.value.trim(),room=document.getElementById('input-room').value.trim(),mode=document.querySelector('input[name=mode]:checked').value;if(!wssUrl||!room){showError('请填写服务器地址和房间号');return}localStorage.setItem('game_wss_url',wssUrl);onlineModal.classList.remove('show');waitingOverlay.classList.add('show');setWaitingInfo('等待对方进入','正在连接信令服务器...',mode==='create'?room:null);connectSignaling(wssUrl,room,mode)};
+function sendSignal(obj){if(ws&&ws.readyState===1)ws.send(JSON.stringify(obj))}
+function sendPosViaSignal(){if(!ws||ws.readyState!==1||!currentRoom||(dc&&dc.readyState==='open'))return;sendSignal({type:'pos',room:currentRoom,x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx})}
+function sendStateNow(){if(dc&&dc.readyState==='open')try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}))}catch{}}
+function sendStateBurst(){sendStateNow();for(let i=1;i<=8;i++)setTimeout(sendStateNow,i*40)}
+function startKeepAlive(){if(keepAliveTimer)clearInterval(keepAliveTimer);keepAliveTimer=setInterval(()=>{if(ws&&ws.readyState===1&&currentRoom)sendSignal({type:'ping',room:currentRoom})},15000)}
+async function flushPendingCandidates(){while(pendingCandidates.length){const c=pendingCandidates.shift();try{await pc.addIceCandidate(c)}catch(e){log('添加 candidate 失败: '+e.message)}}}
+function fullDisconnect(reason){if(signalPosTimer){clearInterval(signalPosTimer);signalPosTimer=null}if(keepAliveTimer){clearInterval(keepAliveTimer);keepAliveTimer=null}if(disconnectTimer){clearTimeout(disconnectTimer);disconnectTimer=null}if(dc){try{dc.close()}catch{}dc=null}if(pc){try{pc.close()}catch{}pc=null}if(ws){try{ws.close()}catch{}ws=null}remote.active=false;remote.sitting=false;remote.walking=false;peerSynced=false;gameReady=false;offerHandled=false;pendingCandidates=[];myRole=null;currentRoom='';onlineStatus.textContent=isOnlineMode?'未连接':'单人模式';log(reason||'已断开连接')}
+function tryEnterGame(){if(gameReady)return;if(dc&&dc.readyState==='open'&&peerSynced){gameReady=true;setWaitingInfo('连接成功','正在进入游戏...',currentRoom);applySpawn(myRole||'host');setTimeout(()=>{showGame();log('双方已连接，开始游戏！')},500)}}
 function connectSignaling(url,room,mode){
-fullDisconnect();
-currentRoom=room;onlineStatus.textContent='连接中...';
-remote={x:mode==='create'?1100:800,y:450,sitting:false,walking:false,idx:0,active:false};peerSynced=false;
+fullDisconnect();waitingOverlay.classList.add('show');setWaitingInfo('等待对方进入','正在连接信令服务器...',mode==='create'?room:null);
+currentRoom=room;onlineStatus.textContent='连接中...';remote={x:mode==='create'?SPAWN_JOIN.x:SPAWN_HOST.x,y:SPAWN_JOIN.y,sitting:false,walking:false,idx:0,active:false};peerSynced=false;gameReady=false;
 ws=new WebSocket(url);
-ws.onopen=()=>{
-log('信令已连接');
-if(mode==='create'){
-ws.send(JSON.stringify({type:'create',room,x:posX,y:posY}));
-myRole='host';setPlayerAssets('host');posX=800;posY=450;
-}else{
-ws.send(JSON.stringify({type:'join',room}));
-myRole='join';setPlayerAssets('join');posX=1100;posY=450;
-}
-signalPosTimer=setInterval(sendPosViaSignal,150);
-startKeepAlive();
+ws.onopen=()=>{log('信令已连接');if(mode==='create'){setWaitingInfo('等待对方加入','房间创建中...',room);myRole='host';setPlayerAssets('host');applySpawn('host');ws.send(JSON.stringify({type:'create',room,x:posX,y:posY}))}else{setWaitingInfo('正在加入','正在加入房间 '+room+' ...',null);myRole='join';setPlayerAssets('join');applySpawn('join');ws.send(JSON.stringify({type:'join',room}))}signalPosTimer=setInterval(sendPosViaSignal,150);startKeepAlive()};
+ws.onmessage=async ev=>{
+let msg;try{msg=JSON.parse(ev.data)}catch{return}
+if(msg.type==='room-created'){log('房间创建成功，等待加入...');onlineStatus.textContent='房间 '+room+' 已创建，等待加入...';setWaitingInfo('等待对方加入','房间已创建，请等待对方进入',room);initWebRTC(true);sendPosViaSignal()}
+if(msg.type==='joined'){log('成功加入房间');onlineStatus.textContent='已加入房间 '+room;setWaitingInfo('正在连接','已加入房间，正在建立连接...',room);initWebRTC(false);sendPosViaSignal()}
+if(msg.type==='error'){const t=msg.message||'未知错误';log('错误: '+t);fullDisconnect('连接错误');waitingOverlay.classList.remove('show');if(/不存在|not exist|not found|no room/i.test(t))showError('房间不存在，请检查房间号后重试');else if(/满|full|already/i.test(t))showError('房间已满，无法加入');else showError(t)}
+if(msg.type==='pos'){remote.x=msg.x;remote.y=msg.y;remote.sitting=!!msg.sitting;remote.walking=!!msg.walking;remote.idx=msg.idx||0;remote.active=true;peerSynced=true;tryEnterGame()}
+if(msg.type==='offer'&&myRole==='join'&&!offerHandled){offerHandled=true;log('收到 Offer');setWaitingInfo('正在连接','正在交换连接信息...',room);await handleRemoteOffer(msg.sdp)}
+if(msg.type==='answer'&&myRole==='host'){log('收到 Answer');if(pc&&pc.signalingState==='have-local-offer'){await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));await flushPendingCandidates();sendStateBurst()}}
+if(msg.type==='candidate'){if(!pc){pendingCandidates.push(msg.candidate);return}if(pc.remoteDescription){try{await pc.addIceCandidate(msg.candidate)}catch(e){log('添加 candidate 失败: '+e.message)}}else pendingCandidates.push(msg.candidate)}
+if(msg.type==='peer-left'){log('对方已离开');backToModeSelect('对方离开，已退出房间')}
 };
-ws.onmessage=async(ev)=>{
-let msg;try{msg=JSON.parse(ev.data);}catch{return;}
-if(msg.type==='room-created'){log('房间创建成功，等待加入...');onlineStatus.textContent='房间 '+room+' 已创建，等待加入...';initWebRTC(true);sendPosViaSignal();}
-if(msg.type==='joined'){log('成功加入房间');onlineStatus.textContent='已加入房间 '+room;initWebRTC(false);sendPosViaSignal();}
-if(msg.type==='error'){log('错误: '+msg.message);onlineStatus.textContent='错误: '+msg.message;fullDisconnect('连接错误');}
-if(msg.type==='pos'){remote.x=msg.x;remote.y=msg.y;remote.sitting=!!msg.sitting;remote.walking=!!msg.walking;remote.idx=msg.idx||0;remote.active=true;peerSynced=true;}
-if(msg.type==='offer'&&myRole==='join'&&!offerHandled){offerHandled=true;log('收到 Offer，开始处理');await handleRemoteOffer(msg.sdp);}
-if(msg.type==='answer'&&myRole==='host'){
-log('收到 Answer');
-if(pc&&pc.signalingState==='have-local-offer'){
-await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-log('Answer 已应用');
-await flushPendingCandidates();
-sendStateBurst();
-}
-}
-if(msg.type==='candidate'){
-if(!pc){pendingCandidates.push(msg.candidate);return;}
-if(pc.remoteDescription){
-try{await pc.addIceCandidate(msg.candidate);}catch(e){log('添加 candidate 失败: '+e.message);}
-}else{
-pendingCandidates.push(msg.candidate);
-}
-}
-if(msg.type==='peer-left'){log('对方已离开，双方退出');fullDisconnect('对方离开，已退出房间');}
-};
-ws.onclose=()=>{if(onlineStatus.textContent!=='未连接')fullDisconnect('信令断开');};
-ws.onerror=()=>{onlineStatus.textContent='连接失败';log('信令连接失败');fullDisconnect('信令连接失败');};
+ws.onclose=()=>{if(onlineStatus.textContent!=='未连接'&&onlineStatus.textContent!=='单人模式')backToModeSelect('信令断开')};
+ws.onerror=()=>{log('信令连接失败');fullDisconnect('信令连接失败');waitingOverlay.classList.remove('show');showError('无法连接信令服务器，请检查地址后重试')};
 }
 function initWebRTC(isHost){
 pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});
-pc.onicecandidate=e=>{if(e.candidate)sendSignal({type:'candidate',candidate:e.candidate,room:currentRoom});else log('ICE 收集完成');};
-pc.onicegatheringstatechange=()=>log('ICE gathering: '+pc.iceGatheringState);
-pc.onconnectionstatechange=()=>{
-const state=pc.connectionState;
-log('连接状态: '+state);
-if(state==='connected'){
-if(disconnectTimer){clearTimeout(disconnectTimer);disconnectTimer=null;}
-onlineStatus.textContent=(onlineStatus.textContent.replace('等待加入...','已连接')).replace('(对方离开)','')+' (P2P已连通)';
+pc.onicecandidate=e=>{if(e.candidate)sendSignal({type:'candidate',candidate:e.candidate,room:currentRoom})};
+pc.onconnectionstatechange=()=>{const st=pc.connectionState;log('连接状态: '+st);if(st==='connected'){if(disconnectTimer){clearTimeout(disconnectTimer);disconnectTimer=null}onlineStatus.textContent=(onlineStatus.textContent.replace('等待加入...','已连接'))+' (P2P已连通)';setWaitingInfo('连接成功','P2P已连通，等待状态同步...',currentRoom);tryEnterGame()}else if(st==='disconnected'){if(disconnectTimer)clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(pc&&pc.connectionState!=='connected')backToModeSelect('连接超时未恢复')},12000)}else if(st==='failed'||st==='closed')backToModeSelect('P2P连接失败/关闭')};
+pc.ondatachannel=e=>{dc=e.channel;setupDC()};
+if(isHost){dc=pc.createDataChannel('game',{ordered:true});setupDC();createAndSendOffer()}
 }
-else if(state==='disconnected'){
-log('连接暂时中断，等待12秒自动恢复...');
-if(disconnectTimer) clearTimeout(disconnectTimer);
-disconnectTimer=setTimeout(()=>{
-if(pc&&pc.connectionState!=='connected'){
-fullDisconnect('连接超时未恢复，已退出');
-}
-},12000);
-}
-else if(state==='failed'||state==='closed'){
-fullDisconnect('P2P连接失败/关闭');
-}
-};
-pc.ondatachannel=e=>{dc=e.channel;setupDC();};
-if(isHost){dc=pc.createDataChannel('game',{ordered:true});setupDC();createAndSendOffer();}
-}
-async function createAndSendOffer(){try{const offer=await pc.createOffer();await pc.setLocalDescription(offer);setTimeout(()=>{if(pc.localDescription){sendSignal({type:'offer',sdp:pc.localDescription,room:currentRoom});log('Offer 已发送（含 ICE 候选）');}},800);}catch(e){log('创建 Offer 失败: '+e.message);}}
-async function handleRemoteOffer(sdp){
-try{
-await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-await flushPendingCandidates();
-const answer=await pc.createAnswer();
-await pc.setLocalDescription(answer);
-setTimeout(()=>{if(pc.localDescription){sendSignal({type:'answer',sdp:pc.localDescription,room:currentRoom});log('Answer 已发送（含 ICE 候选）');}},800);
-}catch(e){log('处理 Offer 失败: '+e.message);}
-}
+async function createAndSendOffer(){try{const offer=await pc.createOffer();await pc.setLocalDescription(offer);setTimeout(()=>{if(pc.localDescription)sendSignal({type:'offer',sdp:pc.localDescription,room:currentRoom})},800)}catch(e){log('创建 Offer 失败: '+e.message)}}
+async function handleRemoteOffer(sdp){try{await pc.setRemoteDescription(new RTCSessionDescription(sdp));await flushPendingCandidates();const answer=await pc.createAnswer();await pc.setLocalDescription(answer);setTimeout(()=>{if(pc.localDescription)sendSignal({type:'answer',sdp:pc.localDescription,room:currentRoom})},800)}catch(e){log('处理 Offer 失败: '+e.message)}}
 function setupDC(){
-dc.onopen=()=>{
-log('数据通道已打开');
-if(signalPosTimer){clearInterval(signalPosTimer);signalPosTimer=null;}
-sendStateNow();
-sendStateBurst();
-if(myRole==='host')onlineStatus.textContent=onlineStatus.textContent.replace('等待加入...','已连接');
-else onlineStatus.textContent+=' (已连接)';
-};
-dc.onclose=()=>{
-log('数据通道暂时关闭，等待恢复...');
-if(disconnectTimer) clearTimeout(disconnectTimer);
-disconnectTimer=setTimeout(()=>{
-if(!dc||dc.readyState!=='open'){
-fullDisconnect('数据通道长时间未恢复');
+dc.onopen=()=>{log('数据通道已打开');if(signalPosTimer){clearInterval(signalPosTimer);signalPosTimer=null}sendStateNow();sendStateBurst();setWaitingInfo('连接成功','数据通道已打开，等待状态同步...',currentRoom);tryEnterGame()};
+dc.onclose=()=>{if(disconnectTimer)clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(!dc||dc.readyState!=='open')backToModeSelect('数据通道长时间未恢复')},12000)};
+dc.onmessage=e=>{try{const data=JSON.parse(e.data);remote.x=data.x;remote.y=data.y;remote.sitting=!!data.sitting;remote.walking=!!data.walking;remote.idx=data.idx||0;remote.active=true;peerSynced=true;tryEnterGame();const now=Date.now();if(now-lastRemoteLog>500){lastRemoteLog=now;log(`对方 → X:${Math.round(remote.x)} Y:${Math.round(remote.y)}`)}}catch{}};
+setInterval(()=>{if(dc&&dc.readyState==='open')try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}))}catch{}},40);
 }
-},12000);
-};
-dc.onmessage=e=>{
-try{
-const data=JSON.parse(e.data);
-remote.x=data.x;remote.y=data.y;remote.sitting=!!data.sitting;remote.walking=!!data.walking;remote.idx=data.idx||0;
-remote.active=true;peerSynced=true;
-const now=Date.now();
-if(now-lastRemoteLog>500){lastRemoteLog=now;const state=remote.sitting?'坐下':(remote.walking?'走路':'站立');log(`对方 → X:${Math.round(remote.x)} Y:${Math.round(remote.y)} 状态:${state}`);}
-}catch{}
-};
-setInterval(()=>{if(dc&&dc.readyState==='open'){try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}));}catch{}}},40);
-}
-preloadAllImages().then(()=>{[playerIdle,playerSit,...walkFrames,remoteIdle,remoteSit,...remoteWalk].forEach(loadImage);log('系统初始化完成');update();});
+preloadAllImages().then(()=>{[playerIdle,playerSit,playerSleep,...walkFrames,remoteIdle,remoteSit,remoteSleep,...remoteWalk].forEach(loadImage);log('系统初始化完成');update()});
 </script>
 </body>
 </html>
