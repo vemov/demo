@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game</title>
+<title>webrtc Game</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none}
 html,body{width:100vw;height:100vh;overflow:hidden;font-family:sans-serif}
@@ -113,7 +113,7 @@ const furnitureData=[
 {id:'方桌',cx:1120,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOffsetX1:-75,colOffsetX2:75,colOffsetY1:-25,colOffsetY2:-25,itemsOnTop:[]},
 {id:'盆栽',cx:1300,cy:400,w:80,h:80,src:'images/plant.webp',level:0,colOffsetX1:15,colOffsetX2:-5,colOffsetY1:-15,colOffsetY2:-25},
 {id:'椅子',cx:1450,cy:400,w:55,h:100,src:'images/chair.webp',level:0,colOffsetX1:15,colOffsetX2:-5,colOffsetY1:-15,colOffsetY2:-25},
-{id:'沙发',cx:600,cy:520,w:300,h:140,src:'images/sofa.webp',level:0,colOffsetX1:-130,colOffsetX2:130,colOffsetY1:-35,colOffsetY2:-20,seats:[{ox:-85,oy:-95},{ox:5,oy:-95}]}
+{id:'沙发',cx:600,cy:520,w:300,h:140,src:'images/sofa.webp',level:0,colOffsetX1:-130,colOffsetX2:130,colOffsetY1:-35,colOffsetY2:-20,seats:[{ox:-90,oy:-95},{ox:-10,oy:-95}]}
 ];
 function createTip(item){const tip=document.createElement('div');tip.textContent=item.id;tip.style.cssText=`position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,0)`;tipsContainer.appendChild(tip);item.tipElement=tip;}
 carpetData.forEach(item=>{loadImage(item.src);createTip(item);});
@@ -229,7 +229,7 @@ viewport.scrollTo({left:posX+playerSize/2-window.innerWidth/2,top:posY+playerSiz
 requestAnimationFrame(update);
 }
 const btnOnline=document.getElementById('btn-online'),onlineModal=document.getElementById('online-modal'),btnConfirm=document.getElementById('btn-confirm'),btnCancel=document.getElementById('btn-cancel'),btnCloseModal=document.getElementById('btn-close-modal'),onlineStatus=document.getElementById('online-status'),inputWss=document.getElementById('input-wss');
-let ws=null,pc=null,dc=null,myRole=null,currentRoom='',offerHandled=false,iceSendQueue=[],signalPosTimer=null;
+let ws=null,pc=null,dc=null,myRole=null,currentRoom='',offerHandled=false,pendingCandidates=[],signalPosTimer=null,keepAliveTimer=null,disconnectTimer=null;
 const savedWss=localStorage.getItem('game_wss_url');inputWss.value=savedWss||'wss://test.hefengcy.com';
 btnOnline.onclick=()=>onlineModal.classList.add('show');
 btnCancel.onclick=btnCloseModal.onclick=()=>onlineModal.classList.remove('show');
@@ -247,17 +247,31 @@ try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,id
 }
 function sendStateBurst(){
 sendStateNow();
-for(let i=1;i<=8;i++){
-setTimeout(sendStateNow,i*40);
+for(let i=1;i<=8;i++) setTimeout(sendStateNow,i*40);
+}
+function startKeepAlive(){
+if(keepAliveTimer) clearInterval(keepAliveTimer);
+keepAliveTimer=setInterval(()=>{
+if(ws&&ws.readyState===1&&currentRoom){
+sendSignal({type:'ping',room:currentRoom});
+}
+},15000);
+}
+async function flushPendingCandidates(){
+while(pendingCandidates.length){
+const c=pendingCandidates.shift();
+try{await pc.addIceCandidate(c);}catch(e){log('添加 candidate 失败: '+e.message);}
 }
 }
 function fullDisconnect(reason){
 if(signalPosTimer){clearInterval(signalPosTimer);signalPosTimer=null;}
+if(keepAliveTimer){clearInterval(keepAliveTimer);keepAliveTimer=null;}
+if(disconnectTimer){clearTimeout(disconnectTimer);disconnectTimer=null;}
 if(dc){try{dc.close();}catch{}dc=null;}
 if(pc){try{pc.close();}catch{}pc=null;}
 if(ws){try{ws.close();}catch{}ws=null;}
 remote.active=false;remote.sitting=false;remote.walking=false;peerSynced=false;
-offerHandled=false;iceSendQueue=[];myRole=null;currentRoom='';
+offerHandled=false;pendingCandidates=[];myRole=null;currentRoom='';
 onlineStatus.textContent='未连接';
 log(reason||'已断开连接');
 }
@@ -276,6 +290,7 @@ ws.send(JSON.stringify({type:'join',room}));
 myRole='join';setPlayerAssets('join');posX=1100;posY=450;
 }
 signalPosTimer=setInterval(sendPosViaSignal,150);
+startKeepAlive();
 };
 ws.onmessage=async(ev)=>{
 let msg;try{msg=JSON.parse(ev.data);}catch{return;}
@@ -284,8 +299,23 @@ if(msg.type==='joined'){log('成功加入房间');onlineStatus.textContent='已�
 if(msg.type==='error'){log('错误: '+msg.message);onlineStatus.textContent='错误: '+msg.message;fullDisconnect('连接错误');}
 if(msg.type==='pos'){remote.x=msg.x;remote.y=msg.y;remote.sitting=!!msg.sitting;remote.walking=!!msg.walking;remote.idx=msg.idx||0;remote.active=true;peerSynced=true;}
 if(msg.type==='offer'&&myRole==='join'&&!offerHandled){offerHandled=true;log('收到 Offer，开始处理');await handleRemoteOffer(msg.sdp);}
-if(msg.type==='answer'&&myRole==='host'){log('收到 Answer');if(pc&&pc.signalingState==='have-local-offer'){await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));log('Answer 已应用');sendStateBurst();}}
-if(msg.type==='candidate'){if(pc){try{await pc.addIceCandidate(msg.candidate);}catch(e){log('添加 candidate 失败: '+e.message);}}else iceSendQueue.push(msg.candidate);}
+if(msg.type==='answer'&&myRole==='host'){
+log('收到 Answer');
+if(pc&&pc.signalingState==='have-local-offer'){
+await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+log('Answer 已应用');
+await flushPendingCandidates();
+sendStateBurst();
+}
+}
+if(msg.type==='candidate'){
+if(!pc){pendingCandidates.push(msg.candidate);return;}
+if(pc.remoteDescription){
+try{await pc.addIceCandidate(msg.candidate);}catch(e){log('添加 candidate 失败: '+e.message);}
+}else{
+pendingCandidates.push(msg.candidate);
+}
+}
 if(msg.type==='peer-left'){log('对方已离开，双方退出');fullDisconnect('对方离开，已退出房间');}
 };
 ws.onclose=()=>{if(onlineStatus.textContent!=='未连接')fullDisconnect('信令断开');};
@@ -295,12 +325,39 @@ function initWebRTC(isHost){
 pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});
 pc.onicecandidate=e=>{if(e.candidate)sendSignal({type:'candidate',candidate:e.candidate,room:currentRoom});else log('ICE 收集完成');};
 pc.onicegatheringstatechange=()=>log('ICE gathering: '+pc.iceGatheringState);
-pc.onconnectionstatechange=()=>{log('连接状态: '+pc.connectionState);if(pc.connectionState==='connected')onlineStatus.textContent=(onlineStatus.textContent.replace('等待加入...','已连接')).replace('(对方离开)','')+' (P2P已连通)';if(pc.connectionState==='disconnected'||pc.connectionState==='failed'||pc.connectionState==='closed'){fullDisconnect('P2P连接断开');}};
+pc.onconnectionstatechange=()=>{
+const state=pc.connectionState;
+log('连接状态: '+state);
+if(state==='connected'){
+if(disconnectTimer){clearTimeout(disconnectTimer);disconnectTimer=null;}
+onlineStatus.textContent=(onlineStatus.textContent.replace('等待加入...','已连接')).replace('(对方离开)','')+' (P2P已连通)';
+}
+else if(state==='disconnected'){
+log('连接暂时中断，等待12秒自动恢复...');
+if(disconnectTimer) clearTimeout(disconnectTimer);
+disconnectTimer=setTimeout(()=>{
+if(pc&&pc.connectionState!=='connected'){
+fullDisconnect('连接超时未恢复，已退出');
+}
+},12000);
+}
+else if(state==='failed'||state==='closed'){
+fullDisconnect('P2P连接失败/关闭');
+}
+};
 pc.ondatachannel=e=>{dc=e.channel;setupDC();};
 if(isHost){dc=pc.createDataChannel('game',{ordered:true});setupDC();createAndSendOffer();}
 }
 async function createAndSendOffer(){try{const offer=await pc.createOffer();await pc.setLocalDescription(offer);setTimeout(()=>{if(pc.localDescription){sendSignal({type:'offer',sdp:pc.localDescription,room:currentRoom});log('Offer 已发送（含 ICE 候选）');}},800);}catch(e){log('创建 Offer 失败: '+e.message);}}
-async function handleRemoteOffer(sdp){try{await pc.setRemoteDescription(new RTCSessionDescription(sdp));while(iceSendQueue.length){const c=iceSendQueue.shift();try{await pc.addIceCandidate(c);}catch{}}const answer=await pc.createAnswer();await pc.setLocalDescription(answer);setTimeout(()=>{if(pc.localDescription){sendSignal({type:'answer',sdp:pc.localDescription,room:currentRoom});log('Answer 已发送（含 ICE 候选）');}},800);}catch(e){log('处理 Offer 失败: '+e.message);}}
+async function handleRemoteOffer(sdp){
+try{
+await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+await flushPendingCandidates();
+const answer=await pc.createAnswer();
+await pc.setLocalDescription(answer);
+setTimeout(()=>{if(pc.localDescription){sendSignal({type:'answer',sdp:pc.localDescription,room:currentRoom});log('Answer 已发送（含 ICE 候选）');}},800);
+}catch(e){log('处理 Offer 失败: '+e.message);}
+}
 function setupDC(){
 dc.onopen=()=>{
 log('数据通道已打开');
@@ -310,7 +367,15 @@ sendStateBurst();
 if(myRole==='host')onlineStatus.textContent=onlineStatus.textContent.replace('等待加入...','已连接');
 else onlineStatus.textContent+=' (已连接)';
 };
-dc.onclose=()=>{log('数据通道已关闭');fullDisconnect('数据通道关闭');};
+dc.onclose=()=>{
+log('数据通道暂时关闭，等待恢复...');
+if(disconnectTimer) clearTimeout(disconnectTimer);
+disconnectTimer=setTimeout(()=>{
+if(!dc||dc.readyState!=='open'){
+fullDisconnect('数据通道长时间未恢复');
+}
+},12000);
+};
 dc.onmessage=e=>{
 try{
 const data=JSON.parse(e.data);
