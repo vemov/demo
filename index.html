@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebRTC Game</title>
+<title>WebRTC-Game</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none}
 html,body{width:100vw;height:100vh;overflow:hidden;font-family:Tahoma,"MS Sans Serif",Arial,sans-serif;background:#c8dcec}
@@ -77,9 +77,10 @@ function setPlayerAssets(role){const z=role==='host';playerIdle=`./images/player
 function preloadAllImages(){return new Promise(resolve=>{const total=ALL_IMAGE_SRCS.length;let loaded=0;const bar=document.getElementById('loading-bar'),text=document.getElementById('loading-text'),screen=document.getElementById('loading-screen');const tick=()=>{const pct=Math.round(loaded/total*100);bar.style.width=pct+'%';text.textContent=pct+'% ('+loaded+'/'+total+')';if(loaded>=total)setTimeout(()=>{screen.classList.add('hidden');setTimeout(()=>screen.remove(),450);resolve()},300)};ALL_IMAGE_SRCS.forEach(src=>{const img=new Image();img.onload=img.onerror=()=>{images[src]=img;loaded++;tick()};img.src=src})})}
 const carpetData=[{id:'地毯',cx:1000,cy:650,w:400,h:200,src:'images/carpet.webp',level:-1}];
 const furnitureData=[
-{id:'方桌',cx:900,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOx:-130,colOy:-60,colW:260,colH:100,itemsOnTop:[{id:'盆栽',src:'images/plant.webp',w:80,h:80,offsetX:-30,offsetY:-50}]},
+{id:'方桌',cx:900,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOx:-130,colOy:-60,colW:260,colH:100,itemsOnTop:[{id:'玫瑰花',src:'images/roses.webp',w:80,h:80,offsetX:-30,offsetY:-50}]},
 {id:'方桌',cx:1120,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOx:-130,colOy:-60,colW:260,colH:100,itemsOnTop:[]},
 {id:'盆栽',cx:1300,cy:400,w:80,h:80,src:'images/plant.webp',level:0,colOx:-30,colOy:-35,colW:80,colH:50},
+{id:'小熊玩偶',cx:1100,cy:700,w:300,h:180,src:'images/teddy-bear.webp',level:0,colOx:-170,colOy:-50,colW:350,colH:100},
 {id:'椅子',cx:1200,cy:520,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},
 {id:'椅子',cx:1170,cy:350,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},
 {id:'椅子',cx:1080,cy:350,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},
