@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebRTC Game</title>
+<title>WebRTC Game v1.01</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none}
 html,body{width:100vw;height:100vh;overflow:hidden;font-family:Tahoma,"MS Sans Serif",Arial,sans-serif;background:#c8dcec}
@@ -52,6 +52,26 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:Tahoma,"MS Sans S
 #waiting-overlay.show{display:flex}
 #error-modal .icq-content{text-align:center;padding:20px 16px}
 #error-modal .err-icon{width:36px;height:36px;line-height:36px;margin:0 auto 10px;background:linear-gradient(to bottom,#e87878,#c04040);color:#fff;border-radius:50%;font-size:20px;font-weight:bold}
+#chat-panel{display:none;position:fixed;bottom:36px;left:8px;width:min(340px,92vw);max-height:280px;z-index:10050;background:#e4eef8;border:1px solid #2a5a8a;border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.12) inset;font-family:Tahoma,"MS Sans Serif",sans-serif;flex-direction:column;overflow:hidden}
+#chat-panel.show{display:flex}
+#chat-panel .chat-title{background:linear-gradient(to bottom,#5aabd8,#2a7ab8);color:#fff;padding:4px 10px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;height:24px;text-shadow:0 1px 1px rgba(0,0,0,.35);border-bottom:1px solid #1a4a7a;flex-shrink:0}
+#chat-panel .chat-title .xbtn{background:linear-gradient(to bottom,#e87878,#c04040);border:1px solid #802020;color:#fff;width:17px;height:15px;font-size:11px;line-height:13px;padding:0;cursor:pointer;border-radius:2px;text-align:center;font-weight:bold}
+#chat-log{flex:1;overflow-y:auto;padding:8px 10px;background:#0c1c2c;color:#b8d4ec;font-size:12px;line-height:1.45;min-height:120px;max-height:180px}
+#chat-log::-webkit-scrollbar{width:8px}
+#chat-log::-webkit-scrollbar-track{background:#0a1520}
+#chat-log::-webkit-scrollbar-thumb{background:linear-gradient(to bottom,#3a6a8c,#2a5070);border-radius:2px}
+#chat-log .msg{margin-bottom:5px;word-break:break-all}
+#chat-log .msg .who{font-weight:bold;margin-right:4px}
+#chat-log .msg.me .who{color:#7ec8ff}
+#chat-log .msg.them .who{color:#ffb07a}
+#chat-log .msg .ts{color:#5a7a9a;font-size:10px;margin-left:6px}
+#chat-input-row{display:flex;gap:6px;padding:8px 10px;background:#d4e4f0;border-top:1px solid #a8c0d8;flex-shrink:0}
+#chat-input{flex:1;padding:5px 8px;border:1px solid #7a9ab8;background:#fff;font-size:12px;font-family:Tahoma,sans-serif;border-radius:3px;color:#1a3a5c}
+#chat-input:focus{outline:none;border-color:#3a8ac8;box-shadow:0 0 0 2px rgba(58,138,200,.2)}
+#chat-send{background:linear-gradient(to bottom,#6ab0e0,#3a80c0);border:1px solid #2a6090;color:#fff;padding:4px 14px;font-size:12px;cursor:pointer;font-family:Tahoma,sans-serif;border-radius:3px;font-weight:bold;text-shadow:0 1px 1px rgba(0,0,0,.25);min-width:56px}
+#chat-send:hover{background:linear-gradient(to bottom,#7ac0f0,#4a90d0)}
+.bubble-stack{position:absolute;display:flex;flex-direction:column-reverse;align-items:center;gap:3px;z-index:1001;pointer-events:none;transform:translate(-50%,-100%);max-width:170px}
+.bubble-stack .bbl{background:rgba(0,0,0,.55);color:#fff;padding:3px 9px;border-radius:8px;font-size:12px;text-align:center;white-space:pre-wrap;word-break:break-all;line-height:1.3;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 </style>
 </head>
 <body>
@@ -63,6 +83,7 @@ html,body{width:100vw;height:100vh;overflow:hidden;font-family:Tahoma,"MS Sans S
 <div id="online-modal" class="modal-overlay"><div class="icq-win"><div class="icq-title"><span>WebRTC Game - 联机设置</span><button class="xbtn" id="btn-close-modal">×</button></div><div class="icq-content"><label>信令服务器地址</label><input type="text" id="input-wss" placeholder="wss://test.hefengcy.com"><label>房间号</label><input type="text" id="input-room" placeholder="输入房间号"><div class="row"><label><input type="radio" name="mode" value="create"> 创建房间</label><label><input type="radio" name="mode" value="join" checked> 加入房间</label></div></div><div class="icq-btns"><button class="icq-btn" id="btn-cancel">取消</button><button class="icq-btn primary" id="btn-confirm">确定</button></div></div></div>
 <div id="viewport"><div id="game-area"><canvas id="game-canvas" width="2000" height="1000"></canvas><div id="tips-container"></div></div></div>
 <div id="terminal-container"><div id="terminal-header" onclick="document.getElementById('terminal-container').classList.toggle('expanded')"><span>日志 | 坐标: <span id="coords-val">X: 0, Y: 0</span></span><span>[展开/收起]</span></div><div id="terminal-body"></div></div>
+<div id="chat-panel"><div class="chat-title"><span>聊天</span><button class="xbtn" id="btn-chat-close">×</button></div><div id="chat-log"></div><div id="chat-input-row"><input type="text" id="chat-input" maxlength="60" placeholder="输入消息..."><button id="chat-send">发送</button></div></div>
 <script src="./virtual-controls.js" defer></script>
 <script>
 const viewport=document.getElementById('viewport'),canvas=document.getElementById('game-canvas'),ctx=canvas.getContext('2d'),coordsVal=document.getElementById('coords-val'),logBody=document.getElementById('terminal-body'),tipsContainer=document.getElementById('tips-container');
@@ -75,65 +96,25 @@ const images={},ALL_IMAGE_SRCS=['./images/background.webp','./images/player-z.we
 function loadImage(src){if(images[src])return images[src];const img=new Image();img.src=src;images[src]=img;return img}
 function setPlayerAssets(role){const z=role==='host';playerIdle=`./images/player-${z?'z':'x'}.webp`;playerSit=`./images/player-${z?'z':'x'}/sit/sit.webp`;playerSleep=`./images/player-${z?'z':'x'}/sleep/sleep.webp`;walkFrames=[`./images/player-${z?'z':'x'}/walk/walk_0001.webp`,`./images/player-${z?'z':'x'}/walk/walk_0002.webp`];remoteIdle=`./images/player-${z?'x':'z'}.webp`;remoteSit=`./images/player-${z?'x':'z'}/sit/sit.webp`;remoteSleep=`./images/player-${z?'x':'z'}/sleep/sleep.webp`;remoteWalk=[`./images/player-${z?'x':'z'}/walk/walk_0001.webp`,`./images/player-${z?'x':'z'}/walk/walk_0002.webp`];[playerIdle,playerSit,playerSleep,...walkFrames,remoteIdle,remoteSit,remoteSleep,...remoteWalk].forEach(loadImage)}
 function preloadAllImages(){return new Promise(resolve=>{const total=ALL_IMAGE_SRCS.length;let loaded=0;const bar=document.getElementById('loading-bar'),text=document.getElementById('loading-text'),screen=document.getElementById('loading-screen');const tick=()=>{const pct=Math.round(loaded/total*100);bar.style.width=pct+'%';text.textContent=pct+'% ('+loaded+'/'+total+')';if(loaded>=total)setTimeout(()=>{screen.classList.add('hidden');setTimeout(()=>screen.remove(),450);resolve()},300)};ALL_IMAGE_SRCS.forEach(src=>{const img=new Image();img.onload=img.onerror=()=>{images[src]=img;loaded++;tick()};img.src=src})})}
-const carpetData=[
-    {id:'地毯',cx:1000,cy:650,w:400,h:200,src:'images/carpet.webp',level:-1}
-];
-const furnitureData=[
-{id:'方桌',cx:900,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOx:-130,colOy:-60,colW:260,colH:100,itemsOnTop:[{id:'玫瑰花',src:'images/roses.webp',w:80,h:80,offsetX:-30,offsetY:-50}]},
-{id:'方桌',cx:1120,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOx:-130,colOy:-60,colW:260,colH:100,itemsOnTop:[]},
-{id:'盆栽',cx:1300,cy:400,w:80,h:80,src:'images/plant.webp',level:0,colOx:-30,colOy:-35,colW:80,colH:50},
-{id:'海报',cx:1450,cy:450,w:100,h:150,src:'images/easel.webp',level:0,colOx:-80,colOy:0,colW:160,colH:30,itemsOnTop:[{id:'限定',src:'images/2026-08-19.webp',w:80,h:107,offsetX:-1,offsetY:-17}]},
-{id:'小熊玩偶',cx:1400,cy:700,w:300,h:180,src:'images/teddy-bear.webp',level:0,colOx:-170,colOy:-50,colW:350,colH:100},
-{id:'椅子',cx:1200,cy:520,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},
-{id:'椅子',cx:1170,cy:350,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},
-{id:'椅子',cx:1080,cy:350,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},
-{id:'椅子',cx:940,cy:350,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},
-{id:'沙发',cx:1000,cy:520,w:300,h:140,src:'images/sofa.webp',level:0,colOx:-180,colOy:-95,colW:360,colH:130,exitDir:'s',seats:[{ox:-90,oy:-95},{ox:-10,oy:-95}]},
-{id:'双人床',cx:600,cy:550,w:250,h:280,src:'images/bed.webp',level:0,colOx:-150,colOy:-150,colW:310,colH:250,exitDir:'e',seats:[{ox:-100,oy:-120},{ox:-20,oy:-120}]}
-];
-function createTip(item){
-const tip=document.createElement('div');
-tip.textContent=item.id;
-tip.style.cssText='position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,-100%)';
-tipsContainer.appendChild(tip);
-const action=document.createElement('div');
-action.textContent='';
-action.style.cssText='position:absolute;color:#ffeb3b;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:1000;pointer-events:none;transform:translate(-50%,0)';
-tipsContainer.appendChild(action);
-item.tipElement=tip;
-item.actionTipElement=action;
-}
-carpetData.forEach(i=>{loadImage(i.src);createTip(i)});
-furnitureData.forEach(i=>{loadImage(i.src);if(i.itemsOnTop)i.itemsOnTop.forEach(s=>loadImage(s.src));createTip(i)});
+const carpetData=[{id:'地毯',cx:1000,cy:650,w:400,h:200,src:'images/carpet.webp',level:-1}];
+const furnitureData=[{id:'方桌',cx:900,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOx:-130,colOy:-60,colW:260,colH:100,itemsOnTop:[{id:'玫瑰花',src:'images/roses.webp',w:80,h:80,offsetX:-30,offsetY:-50}]},{id:'方桌',cx:1120,cy:400,w:200,h:120,src:'images/desk.webp',level:0,colOx:-130,colOy:-60,colW:260,colH:100,itemsOnTop:[]},{id:'盆栽',cx:1300,cy:400,w:80,h:80,src:'images/plant.webp',level:0,colOx:-30,colOy:-35,colW:80,colH:50},{id:'海报',cx:1450,cy:450,w:100,h:150,src:'images/easel.webp',level:0,colOx:-80,colOy:0,colW:160,colH:30,itemsOnTop:[{id:'限定',src:'images/2026-08-19.webp',w:80,h:107,offsetX:-1,offsetY:-17}]},{id:'小熊玩偶',cx:1400,cy:700,w:300,h:180,src:'images/teddy-bear.webp',level:0,colOx:-170,colOy:-50,colW:350,colH:100},{id:'椅子',cx:1200,cy:520,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},{id:'椅子',cx:1170,cy:350,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},{id:'椅子',cx:1080,cy:350,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},{id:'椅子',cx:940,cy:350,w:55,h:100,src:'images/chair.webp',level:0,colOx:-40,colOy:-45,colW:95,colH:50,exitDir:'e'},{id:'沙发',cx:1000,cy:520,w:300,h:140,src:'images/sofa.webp',level:0,colOx:-180,colOy:-95,colW:360,colH:130,exitDir:'s',seats:[{ox:-90,oy:-95},{ox:-10,oy:-95}]},{id:'双人床',cx:600,cy:550,w:250,h:280,src:'images/bed.webp',level:0,colOx:-150,colOy:-150,colW:310,colH:250,exitDir:'e',seats:[{ox:-100,oy:-120},{ox:-20,oy:-120}]}];
+function createTip(item){const tip=document.createElement('div');tip.textContent=item.id;tip.style.cssText='position:absolute;color:#fff;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:999;pointer-events:none;transform:translate(-50%,-100%)';tipsContainer.appendChild(tip);const action=document.createElement('div');action.textContent='';action.style.cssText='position:absolute;color:#ffeb3b;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px rgba(0,0,0,.9),-1px -1px 2px rgba(0,0,0,.9),1px -1px 2px rgba(0,0,0,.9),-1px 1px 2px rgba(0,0,0,.9);white-space:nowrap;display:none;z-index:1000;pointer-events:none;transform:translate(-50%,0)';tipsContainer.appendChild(action);item.tipElement=tip;item.actionTipElement=action}
+carpetData.forEach(i=>{loadImage(i.src);createTip(i)});furnitureData.forEach(i=>{loadImage(i.src);if(i.itemsOnTop)i.itemsOnTop.forEach(s=>loadImage(s.src));createTip(i)});
+const localStack=document.createElement('div');localStack.className='bubble-stack';tipsContainer.appendChild(localStack);
+const remoteStack=document.createElement('div');remoteStack.className='bubble-stack';tipsContainer.appendChild(remoteStack);
+let localBubbles=[],remoteBubbles=[],chatHistory=[],chatOpen=false;
+const chatPanel=document.getElementById('chat-panel'),chatLog=document.getElementById('chat-log'),chatInput=document.getElementById('chat-input'),chatSend=document.getElementById('chat-send');
+function pushBubble(isLocal,txt){const arr=isLocal?localBubbles:remoteBubbles;arr.push({text:String(txt).slice(0,40),until:Date.now()+10000});while(arr.length>3)arr.shift()}
+function addChatMsg(from,text){const t=String(text).slice(0,60);chatHistory.push({from,text:t,ts:Date.now()});if(chatHistory.length>80)chatHistory.shift();const d=document.createElement('div');d.className='msg '+(from==='me'?'me':'them');const who=from==='me'?'我':'对方';const time=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});d.innerHTML=`<span class="who">${who}</span>${t}<span class="ts">${time}</span>`;chatLog.appendChild(d);chatLog.scrollTop=chatLog.scrollHeight;pushBubble(from==='me',t)}
+function sendChat(){const msg=chatInput.value.trim();if(!msg)return;addChatMsg('me',msg);if(dc&&dc.readyState==='open')try{dc.send(JSON.stringify({type:'chat',text:msg}))}catch{}else if(ws&&ws.readyState===1&&currentRoom)sendSignal({type:'chat',room:currentRoom,text:msg});chatInput.value='';chatInput.focus()}
+function toggleChat(){chatOpen=!chatOpen;chatPanel.classList.toggle('show',chatOpen);if(chatOpen){chatInput.focus();chatLog.scrollTop=chatLog.scrollHeight}else{chatInput.blur();keys.clear()}}
+chatSend.onclick=sendChat;chatInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();sendChat()}if(e.key==='Escape'){e.preventDefault();toggleChat()}};document.getElementById('btn-chat-close').onclick=()=>{if(chatOpen)toggleChat()};
 function pointInRect(px,py,rx,ry,rw,rh){return px>=rx&&px<rx+rw&&py>=ry&&py<ry+rh}
 function getFurnitureRects(){return furnitureData.map(i=>{const w=i.colW??5,h=i.colH??5;if(w<=0||h<=0)return null;return{id:i.id,x:i.cx+(i.colOx??0),y:i.cy+(i.colOy??0),w,h}}).filter(Boolean)}
 function isPosFree(x,y){if(x<0||y<0||x>worldWidth-playerSize||y>worldHeight-playerSize)return false;const cx=x+playerSize/2,cy=y+playerSize/2;for(const r of getFurnitureRects())if(pointInRect(cx,cy,r.x,r.y,r.w,r.h))return false;return true}
 function resolveOutOfCollision(x,y){if(isPosFree(x,y))return{x,y};let px=x,py=y;const rects=getFurnitureRects();for(let s=0;s<24;s++){let stuck=false;const cx=px+playerSize/2,cy=py+playerSize/2;for(const r of rects){if(pointInRect(cx,cy,r.x,r.y,r.w,r.h)){stuck=true;const dx=cx-(r.x+r.w/2),dy=cy-(r.y+r.h/2);if(Math.abs(dx)>Math.abs(dy)){if(dx>0)px=r.x+r.w-playerSize/2+2;else px=r.x-playerSize/2-2}else{if(dy>0)py=r.y+r.h-playerSize/2+2;else py=r.y-playerSize/2-2}px=Math.max(0,Math.min(worldWidth-playerSize,px));py=Math.max(0,Math.min(worldHeight-playerSize,py))}}if(!stuck)break}if(isPosFree(px,py))return{x:px,y:py};for(let r=12;r<=240;r+=12){for(let a=0;a<16;a++){const ang=a/16*Math.PI*2,nx=Math.round(x+Math.cos(ang)*r),ny=Math.round(y+Math.sin(ang)*r);if(isPosFree(nx,ny))return{x:nx,y:ny}}}return{x:px,y:py}}
-function getExitCandidates(target,prevSeat){
-const dir=target.exitDir||'s',cx=target.cx,cy=target.cy,hw=target.w/2,hh=target.h/2,ps=playerSize/2;
-const map={
-s:[{x:cx-ps,y:cy+hh+10},{x:cx-ps-40,y:cy+hh+10},{x:cx-ps+40,y:cy+hh+10},{x:cx-ps,y:cy+hh+40},{x:cx-ps-60,y:cy+hh},{x:cx-ps+60,y:cy+hh}],
-n:[{x:cx-ps,y:cy-hh-playerSize-10},{x:cx-ps-40,y:cy-hh-playerSize-10},{x:cx-ps+40,y:cy-hh-playerSize-10},{x:cx-ps,y:cy-hh-playerSize-40}],
-e:[{x:cx+hw+10,y:cy-ps},{x:cx+hw+10,y:cy-ps-30},{x:cx+hw+10,y:cy-ps+30},{x:cx+hw+40,y:cy-ps}],
-w:[{x:cx-hw-playerSize-10,y:cy-ps},{x:cx-hw-playerSize-10,y:cy-ps-30},{x:cx-hw-playerSize-10,y:cy-ps+30},{x:cx-hw-playerSize-40,y:cy-ps}]
-};
-let list=map[dir]||map.s;
-if(target.id==='双人床'){
-const L=prevSeat===0;
-if(dir==='s')list=L?[{x:cx-ps-70,y:cy+hh-30},{x:cx-ps-40,y:cy+hh-10},{x:cx-ps,y:cy+hh+10},{x:cx-ps-90,y:cy+hh},{x:cx-ps-50,y:cy+hh+40}]:[{x:cx-ps+50,y:cy+hh-30},{x:cx-ps+20,y:cy+hh-10},{x:cx-ps,y:cy+hh+10},{x:cx-ps+90,y:cy+hh},{x:cx-ps+50,y:cy+hh+40}];
-}
-return list;
-}
-function findNearestFreeSpot(ox,oy,extra=[]){
-const base=[{x:ox,y:oy},{x:ox-40,y:oy},{x:ox+40,y:oy},{x:ox,y:oy-40},{x:ox,y:oy+40},{x:ox-60,y:oy-20},{x:ox+60,y:oy-20},{x:ox-60,y:oy+20},{x:ox+60,y:oy+20},{x:ox-80,y:oy},{x:ox+80,y:oy},{x:ox,y:oy+60},{x:ox,y:oy-60},{x:ox-50,y:oy+50},{x:ox+50,y:oy+50},{x:ox-50,y:oy-50},{x:ox+50,y:oy-50}];
-/* exitDir 候选点必须保持原方向，不能先经过 resolveOutOfCollision，否则东侧候选点被桌子挡住时可能被“推”到北侧。 */
-for(const c of extra)if(isPosFree(c.x,c.y))return{x:c.x,y:c.y};
-/* 指定方向没有直接可用的位置，再使用普通的最近空位搜索。 */
-const all=[...base];
-all.sort((a,b)=>((a.x-ox)**2+(a.y-oy)**2)-((b.x-ox)**2+(b.y-oy)**2));
-for(const c of all){const p=resolveOutOfCollision(c.x,c.y);if(isPosFree(p.x,p.y))return p}
-return resolveOutOfCollision(ox,oy)
-}
+function getExitCandidates(target,prevSeat){const dir=target.exitDir||'s',cx=target.cx,cy=target.cy,hw=target.w/2,hh=target.h/2,ps=playerSize/2;const map={s:[{x:cx-ps,y:cy+hh+10},{x:cx-ps-40,y:cy+hh+10},{x:cx-ps+40,y:cy+hh+10},{x:cx-ps,y:cy+hh+40},{x:cx-ps-60,y:cy+hh},{x:cx-ps+60,y:cy+hh}],n:[{x:cx-ps,y:cy-hh-playerSize-10},{x:cx-ps-40,y:cy-hh-playerSize-10},{x:cx-ps+40,y:cy-hh-playerSize-10},{x:cx-ps,y:cy-hh-playerSize-40}],e:[{x:cx+hw+10,y:cy-ps},{x:cx+hw+10,y:cy-ps-30},{x:cx+hw+10,y:cy-ps+30},{x:cx+hw+40,y:cy-ps}],w:[{x:cx-hw-playerSize-10,y:cy-ps},{x:cx-hw-playerSize-10,y:cy-ps-30},{x:cx-hw-playerSize-10,y:cy-ps+30},{x:cx-hw-playerSize-40,y:cy-ps}]};let list=map[dir]||map.s;if(target.id==='双人床'){const L=prevSeat===0;if(dir==='s')list=L?[{x:cx-ps-70,y:cy+hh-30},{x:cx-ps-40,y:cy+hh-10},{x:cx-ps,y:cy+hh+10},{x:cx-ps-90,y:cy+hh},{x:cx-ps-50,y:cy+hh+40}]:[{x:cx-ps+50,y:cy+hh-30},{x:cx-ps+20,y:cy+hh-10},{x:cx-ps,y:cy+hh+10},{x:cx-ps+90,y:cy+hh},{x:cx-ps+50,y:cy+hh+40}]}return list}
+function findNearestFreeSpot(ox,oy,extra=[]){const base=[{x:ox,y:oy},{x:ox-40,y:oy},{x:ox+40,y:oy},{x:ox,y:oy-40},{x:ox,y:oy+40},{x:ox-60,y:oy-20},{x:ox+60,y:oy-20},{x:ox-60,y:oy+20},{x:ox+60,y:oy+20},{x:ox-80,y:oy},{x:ox+80,y:oy},{x:ox,y:oy+60},{x:ox,y:oy-60},{x:ox-50,y:oy+50},{x:ox+50,y:oy+50},{x:ox-50,y:oy-50},{x:ox+50,y:oy-50}];for(const c of extra)if(isPosFree(c.x,c.y))return{x:c.x,y:c.y};const all=[...base];all.sort((a,b)=>((a.x-ox)**2+(a.y-oy)**2)-((b.x-ox)**2+(b.y-oy)**2));for(const c of all){const p=resolveOutOfCollision(c.x,c.y);if(isPosFree(p.x,p.y))return p}return resolveOutOfCollision(ox,oy)}
 function placeAt(x,y){const p=resolveOutOfCollision(x,y);posX=p.x;posY=p.y}
 function applySpawn(role){placeAt(role==='join'?SPAWN_JOIN.x:SPAWN_HOST.x,role==='join'?SPAWN_JOIN.y:SPAWN_HOST.y)}
 function log(msg){const d=document.createElement('div');d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;logBody.prepend(d)}
@@ -156,162 +137,19 @@ let remote={x:SPAWN_JOIN.x,y:SPAWN_JOIN.y,sitting:false,walking:false,idx:0,acti
 function canControl(){return !isOnlineMode||(gameReady&&peerSynced)}
 const modeModal=document.getElementById('mode-modal'),onlineModal=document.getElementById('online-modal'),waitingOverlay=document.getElementById('waiting-overlay'),errorModal=document.getElementById('error-modal'),btnOnline=document.getElementById('btn-online'),btnBackMode=document.getElementById('btn-back-mode'),onlineStatus=document.getElementById('online-status'),inputWss=document.getElementById('input-wss');
 function showGame(){document.getElementById('viewport').style.display='block';document.getElementById('top-bar').style.display='flex';document.getElementById('terminal-container').style.display='flex';waitingOverlay.classList.remove('show');modeModal.classList.remove('show');onlineModal.classList.remove('show');errorModal.classList.remove('show');if(myRole)applySpawn(myRole);else placeAt(SPAWN_HOST.x,SPAWN_HOST.y)}
-function hideGame(){document.getElementById('viewport').style.display='none';document.getElementById('top-bar').style.display='none';document.getElementById('terminal-container').style.display='none'}
+function hideGame(){document.getElementById('viewport').style.display='none';document.getElementById('top-bar').style.display='none';document.getElementById('terminal-container').style.display='none';if(chatOpen)toggleChat()}
 function showError(msg){document.getElementById('error-msg').textContent=msg;errorModal.classList.add('show');waitingOverlay.classList.remove('show')}
 function setWaitingInfo(title,status,room){document.getElementById('waiting-title').textContent=title;document.getElementById('waiting-status').textContent=status;const el=document.getElementById('waiting-room');if(room){el.style.display='inline-block';el.textContent='房间号：'+room}else{el.style.display='none';el.textContent=''}}
 function backToModeSelect(reason){fullDisconnect(reason||'已断开');isOnlineMode=false;gameReady=false;peerSynced=false;hideGame();waitingOverlay.classList.remove('show');onlineModal.classList.remove('show');errorModal.classList.remove('show');btnOnline.style.display='inline-block';btnBackMode.style.display='none';onlineStatus.textContent='未连接';modeModal.classList.add('show')}
-window.addEventListener('keydown',e=>{
-const k=e.key.toLowerCase();
-if(k==='v'){
-const now=Date.now();if(now-lastVTime<400)return;lastVTime=now;
-if(!canControl()){if(isOnlineMode)log('等待连接完成...');return}
-if(isSitting){
-const prevSeat=sitSeatIdx,target=sitItem;isSitting=false;sitTarget=null;sitSeatIdx=-1;sitItem=null;
-if(target){const candidates=getExitCandidates(target,prevSeat);const free=findNearestFreeSpot(posX,posY,candidates);posX=free.x;posY=free.y}
-log('起身');
-}else{
-const chair=findNearestInteract('椅子'),sofa=findNearestInteract('沙发'),bed=findNearestInteract('双人床');
-if(chair){isSitting=true;sitTarget='chair';sitItem=chair;sitSeatIdx=-1;placeAt(chair.cx-playerSize/2,chair.cy-100);keys.clear();stopWalk();log('坐下(椅子)')}
-else if(sofa){const free=getFreeSeat(sofa);if(free===null){log('沙发已满');return}const s=sofa.seats[free];isSitting=true;sitTarget='sofa';sitItem=sofa;sitSeatIdx=free;placeAt(sofa.cx+s.ox,sofa.cy+s.oy);keys.clear();stopWalk();log(free===0?'坐下(沙发左)':'坐下(沙发右)')}
-else if(bed){const free=getFreeSeat(bed);if(free===null){log('床已满');return}const s=bed.seats[free];isSitting=true;sitTarget='bed';sitItem=bed;sitSeatIdx=free;placeAt(bed.cx+s.ox,bed.cy+s.oy);keys.clear();stopWalk();log(free===0?'睡觉(床左)':'睡觉(床右)')}
-}
-return;
-}
-if(isSitting||!canControl())return;
-if(!keys.has(k)){keys.add(k);log('按下按键: '+e.key);if(moveKeys.has(k))startWalk()}
-});
-window.addEventListener('keyup',e=>{if(isSitting)return;const k=e.key.toLowerCase();keys.delete(k);if(moveKeys.has(k)&&!isMoving())stopWalk()});
+window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();
+if(k==='b'&&!e.repeat){if(document.activeElement===chatInput)return;if(!canControl()&&!chatOpen){if(isOnlineMode)log('等待连接完成...');return}e.preventDefault();toggleChat();return}
+if(chatOpen||document.activeElement===chatInput)return;
+if(k==='v'){const now=Date.now();if(now-lastVTime<400)return;lastVTime=now;if(!canControl()){if(isOnlineMode)log('等待连接完成...');return}if(isSitting){const prevSeat=sitSeatIdx,target=sitItem;isSitting=false;sitTarget=null;sitSeatIdx=-1;sitItem=null;if(target){const candidates=getExitCandidates(target,prevSeat);const free=findNearestFreeSpot(posX,posY,candidates);posX=free.x;posY=free.y}log('起身')}else{const chair=findNearestInteract('椅子'),sofa=findNearestInteract('沙发'),bed=findNearestInteract('双人床');if(chair){isSitting=true;sitTarget='chair';sitItem=chair;sitSeatIdx=-1;placeAt(chair.cx-playerSize/2,chair.cy-100);keys.clear();stopWalk();log('坐下(椅子)')}else if(sofa){const free=getFreeSeat(sofa);if(free===null){log('沙发已满');return}const s=sofa.seats[free];isSitting=true;sitTarget='sofa';sitItem=sofa;sitSeatIdx=free;placeAt(sofa.cx+s.ox,sofa.cy+s.oy);keys.clear();stopWalk();log(free===0?'坐下(沙发左)':'坐下(沙发右)')}else if(bed){const free=getFreeSeat(bed);if(free===null){log('床已满');return}const s=bed.seats[free];isSitting=true;sitTarget='bed';sitItem=bed;sitSeatIdx=free;placeAt(bed.cx+s.ox,bed.cy+s.oy);keys.clear();stopWalk();log(free===0?'睡觉(床左)':'睡觉(床右)')}}return}if(isSitting||!canControl())return;if(!keys.has(k)){keys.add(k);log('按下按键: '+e.key);if(moveKeys.has(k))startWalk()}});
+window.addEventListener('keyup',e=>{if(isSitting||chatOpen)return;const k=e.key.toLowerCase();keys.delete(k);if(moveKeys.has(k)&&!isMoving())stopWalk()});
 window.addEventListener('blur',()=>{keys.clear();stopWalk()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();stopWalk()}else if(dc&&dc.readyState==='open'){try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}))}catch{}sendStateBurst()}});
-function update(){
-if(isWalking){if(100!==currentFrameMs){currentFrameMs=100;clearInterval(walkTimer);walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs)}}
-if(isSitting&&sitItem){
-if(sitTarget==='chair'){posX=sitItem.cx-playerSize/2;posY=sitItem.cy-100}
-else if((sitTarget==='sofa'||sitTarget==='bed')&&sitSeatIdx>=0&&sitItem.seats?.[sitSeatIdx]){const s=sitItem.seats[sitSeatIdx];posX=sitItem.cx+s.ox;posY=sitItem.cy+s.oy}
-}else{
-let nx=posX,ny=posY;
-if(keys.has('w'))ny-=speed;
-if(keys.has('s'))ny+=speed;
-if(keys.has('a'))nx-=speed;
-if(keys.has('d'))nx+=speed;
-const maxX=worldWidth-playerSize,maxY=worldHeight-playerSize;
-nx=Math.max(0,Math.min(maxX,nx));ny=Math.max(0,Math.min(maxY,ny));
-const rects=getFurnitureRects();
-const tryX=nx+playerSize/2,tryY=posY+playerSize/2;
-let okX=true,okY=true;
-for(const r of rects)if(pointInRect(tryX,tryY,r.x,r.y,r.w,r.h)){okX=false;break}
-if(okX)posX=nx;
-const tryX2=posX+playerSize/2,tryY2=ny+playerSize/2;
-for(const r of rects)if(pointInRect(tryX2,tryY2,r.x,r.y,r.w,r.h)){okY=false;break}
-if(okY)posY=ny;
-for(let s=0;s<10;s++){let stuck=false;const cx=posX+playerSize/2,cy=posY+playerSize/2;for(const r of rects){if(pointInRect(cx,cy,r.x,r.y,r.w,r.h)){stuck=true;const dx=cx-(r.x+r.w/2),dy=cy-(r.y+r.h/2);if(Math.abs(dx)>Math.abs(dy)){if(dx>0)posX=r.x+r.w-playerSize/2+2;else posX=r.x-playerSize/2-2}else{if(dy>0)posY=r.y+r.h-playerSize/2+2;else posY=r.y-playerSize/2-2}posX=Math.max(0,Math.min(maxX,posX));posY=Math.max(0,Math.min(maxY,posY))}}if(!stuck)break}
-}
-const currentPBox={x:posX,y:posY,w:playerSize,h:playerSize},threshold=30;
-carpetData.forEach(i=>{
-i.tipElement.style.display='none';
-i.actionTipElement.style.display='none';
-i.tipElement.textContent=i.id;
-i.tipElement.style.color='#fff';
-});
-furnitureData.forEach(i=>{
-i.tipElement.style.display='none';
-i.actionTipElement.style.display='none';
-i.tipElement.style.color='#fff';
-let n=i.id;
-if(i.itemsOnTop?.length){
-const t=i.itemsOnTop.map(s=>s.id).filter(Boolean);
-if(t.length)n+=' '+t.join(' ');
-}
-i.tipElement.textContent=n;
-});
-const active=[...carpetData,...furnitureData].filter(i=>{
-const r={x:i.cx-i.w/2,y:i.cy-i.h/2,w:i.w,h:i.h};
-return posX<r.x+r.w+threshold&&posX+playerSize>r.x-threshold&&posY<r.y+r.h+threshold&&posY+playerSize>r.y-threshold
-});
-const clusters=[];
-active.forEach(item=>{
-let add=false;
-for(const c of clusters)if(c.some(ci=>Math.hypot(ci.cx-item.cx,ci.cy-item.cy)<180)){c.push(item);add=true;break}
-if(!add)clusters.push([item])
-});
-clusters.forEach(c=>{
-if(c.length===1){
-const item=c[0];
-item.tipElement.style.left=item.cx+'px';
-item.tipElement.style.top=(item.cy-item.h/2-8)+'px';
-item.tipElement.style.display='block';
-}else{
-const maxL=Math.max(...c.map(i=>i.level)),tops=c.filter(i=>i.level===maxL);
-const name=[...new Set(tops.flatMap(i=>{
-const n=[i.id];
-i.itemsOnTop?.forEach(s=>{if(s.id)n.push(s.id)});
-return n
-}))].join(' ');
-const p=tops[0],ax=tops.reduce((s,i)=>s+i.cx,0)/tops.length;
-const minT=Math.min(...tops.map(i=>i.cy-i.h/2));
-p.tipElement.textContent=name;
-p.tipElement.style.left=ax+'px';
-p.tipElement.style.top=(minT-8)+'px';
-p.tipElement.style.display='block';
-}
-});
-getChairs().forEach(chair=>{
-if(!chair.tipElement)return;
-const near=!isSitting&&isNearFurniture(chair),here=isSitting&&sitTarget==='chair'&&sitItem===chair;
-if(here||near){
-const occ=isItemOccupiedByRemote(chair);
-chair.actionTipElement.textContent=here?'V 键起身':(occ?'椅子已有人':'V 键坐下');
-chair.actionTipElement.style.color=occ&&!here?'#ff8a80':'#ffeb3b';
-chair.actionTipElement.style.left=chair.cx+'px';
-chair.actionTipElement.style.top=(chair.cy+chair.h/2+8)+'px';
-chair.actionTipElement.style.display='block';
-}
-});
-getSofas().forEach(sofa=>{
-if(!sofa.tipElement)return;
-const near=!isSitting&&isNearFurniture(sofa),here=isSitting&&sitTarget==='sofa'&&sitItem===sofa;
-if(here||near){
-const free=getFreeSeat(sofa);
-sofa.actionTipElement.textContent=here?'V 键起身':(free===null?'沙发已满':'V 键坐下');
-sofa.actionTipElement.style.color=free===null&&!here?'#ff8a80':'#ffeb3b';
-sofa.actionTipElement.style.left=sofa.cx+'px';
-sofa.actionTipElement.style.top=(sofa.cy+sofa.h/2+8)+'px';
-sofa.actionTipElement.style.display='block';
-}
-});
-getBeds().forEach(bed=>{
-if(!bed.tipElement)return;
-const near=!isSitting&&isNearFurniture(bed,200),here=isSitting&&sitTarget==='bed'&&sitItem===bed;
-if(here||near){
-const free=getFreeSeat(bed);
-bed.actionTipElement.textContent=here?'V 键起身':(free===null?'床已满':'V 键睡觉');
-bed.actionTipElement.style.color=free===null&&!here?'#ff8a80':'#ffeb3b';
-bed.actionTipElement.style.left=bed.cx+'px';
-bed.actionTipElement.style.top=(bed.cy+bed.h/2+8)+'px';
-bed.actionTipElement.style.display='block';
-}
-});
-
-ctx.clearRect(0,0,canvas.width,canvas.height);
-const renderList=[];
-carpetData.forEach((item,i)=>renderList.push({type:'carpet',data:item,y:item.cy+item.h/2,level:item.level,oi:i}));
-furnitureData.forEach((item,i)=>renderList.push({type:'furniture',data:item,y:item.cy+item.h/2,level:item.level,oi:i}));
-const sofa=getSofa(),bed=getBed(),chairBottom=sitItem&&sitTarget==='chair'?sitItem.cy+sitItem.h/2:0,sofaBottom=sofa?sofa.cy+sofa.h/2:0,bedBottom=bed?bed.cy+bed.h/2:0;
-const pBottom=isSitting?(sitTarget==='chair'?chairBottom:sitTarget==='sofa'?sofaBottom:bedBottom):(currentPBox.y+currentPBox.h);
-renderList.push({type:'player',y:pBottom,level:0,oi:9999});
-if(remote.active){let rBottom=remote.y+playerSize;if(remote.sitting){if(isRemoteOnBed())rBottom=bedBottom;else if(isRemoteOnChair()){for(const c of getChairs())if(Math.hypot((remote.x+playerSize/2)-c.cx,(remote.y+playerSize/2)-c.cy)<80){rBottom=c.cy+c.h/2;break}}else rBottom=sofaBottom}renderList.push({type:'remote',y:rBottom,level:0,oi:9998})}
-renderList.sort((a,b)=>a.level!==b.level?a.level-b.level:a.y!==b.y?a.y-b.y:a.type==='player'&&b.type!=='player'?1:a.type!=='player'&&b.type==='player'?-1:a.oi-b.oi);
-renderList.forEach(item=>{
-if(item.type==='carpet'){const c=item.data,img=images[c.src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h);else{ctx.fillStyle='#d7ccc8';ctx.fillRect(Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h)}}
-else if(item.type==='furniture'){const f=item.data,img=images[f.src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h);else{ctx.fillStyle='#8B4513';ctx.fillRect(Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h)}f.itemsOnTop?.forEach(sub=>{const si=images[sub.src],sx=f.cx+(sub.offsetX||0)-sub.w/2,sy=f.cy+(sub.offsetY||0)-sub.h/2;if(si?.complete&&si.naturalWidth)ctx.drawImage(si,Math.round(sx),Math.round(sy),sub.w,sub.h);else{ctx.fillStyle='#555';ctx.fillRect(Math.round(sx),Math.round(sy),sub.w,sub.h)}})}
-else if(item.type==='player'){const src=isSitting?(sitTarget==='bed'?playerSleep:playerSit):(isWalking?walkFrames[walkIdx]:playerIdle),img=images[src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(posX),Math.round(posY),playerSize,playerSize);else{ctx.fillStyle='#8A2BE2';ctx.fillRect(Math.round(posX),Math.round(posY),playerSize,playerSize)}}
-else if(item.type==='remote'){const src=remote.sitting?(isRemoteOnBed()?remoteSleep:remoteSit):(remote.walking?remoteWalk[remote.idx%remoteWalk.length]:remoteIdle),img=images[src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(remote.x),Math.round(remote.y),playerSize,playerSize);else{ctx.fillStyle='#e91e63';ctx.fillRect(Math.round(remote.x),Math.round(remote.y),playerSize,playerSize)}}
-});
-if(!isSitting){if(isMoving()){if(!isWalking)startWalk()}else if(isWalking)stopWalk()}
-coordsVal.textContent=`X: ${Math.round(posX)}, Y: ${Math.round(posY)}`;
-viewport.scrollTo({left:posX+playerSize/2-window.innerWidth/2,top:posY+playerSize/2-window.innerHeight/2,behavior:'auto'});
-requestAnimationFrame(update);
-}
+function update(){if(isWalking){if(100!==currentFrameMs){currentFrameMs=100;clearInterval(walkTimer);walkTimer=setInterval(()=>walkIdx=1-walkIdx,currentFrameMs)}}if(isSitting&&sitItem){if(sitTarget==='chair'){posX=sitItem.cx-playerSize/2;posY=sitItem.cy-100}else if((sitTarget==='sofa'||sitTarget==='bed')&&sitSeatIdx>=0&&sitItem.seats?.[sitSeatIdx]){const s=sitItem.seats[sitSeatIdx];posX=sitItem.cx+s.ox;posY=sitItem.cy+s.oy}}else if(!chatOpen){let nx=posX,ny=posY;if(keys.has('w'))ny-=speed;if(keys.has('s'))ny+=speed;if(keys.has('a'))nx-=speed;if(keys.has('d'))nx+=speed;const maxX=worldWidth-playerSize,maxY=worldHeight-playerSize;nx=Math.max(0,Math.min(maxX,nx));ny=Math.max(0,Math.min(maxY,ny));const rects=getFurnitureRects();const tryX=nx+playerSize/2,tryY=posY+playerSize/2;let okX=true,okY=true;for(const r of rects)if(pointInRect(tryX,tryY,r.x,r.y,r.w,r.h)){okX=false;break}if(okX)posX=nx;const tryX2=posX+playerSize/2,tryY2=ny+playerSize/2;for(const r of rects)if(pointInRect(tryX2,tryY2,r.x,r.y,r.w,r.h)){okY=false;break}if(okY)posY=ny;for(let s=0;s<10;s++){let stuck=false;const cx=posX+playerSize/2,cy=posY+playerSize/2;for(const r of rects){if(pointInRect(cx,cy,r.x,r.y,r.w,r.h)){stuck=true;const dx=cx-(r.x+r.w/2),dy=cy-(r.y+r.h/2);if(Math.abs(dx)>Math.abs(dy)){if(dx>0)posX=r.x+r.w-playerSize/2+2;else posX=r.x-playerSize/2-2}else{if(dy>0)posY=r.y+r.h-playerSize/2+2;else posY=r.y-playerSize/2-2}posX=Math.max(0,Math.min(maxX,posX));posY=Math.max(0,Math.min(maxY,posY))}}if(!stuck)break}}const currentPBox={x:posX,y:posY,w:playerSize,h:playerSize},threshold=30;carpetData.forEach(i=>{i.tipElement.style.display='none';i.actionTipElement.style.display='none';i.tipElement.textContent=i.id;i.tipElement.style.color='#fff'});furnitureData.forEach(i=>{i.tipElement.style.display='none';i.actionTipElement.style.display='none';i.tipElement.style.color='#fff';let n=i.id;if(i.itemsOnTop?.length){const t=i.itemsOnTop.map(s=>s.id).filter(Boolean);if(t.length)n+=' '+t.join(' ')}i.tipElement.textContent=n});const active=[...carpetData,...furnitureData].filter(i=>{const r={x:i.cx-i.w/2,y:i.cy-i.h/2,w:i.w,h:i.h};return posX<r.x+r.w+threshold&&posX+playerSize>r.x-threshold&&posY<r.y+r.h+threshold&&posY+playerSize>r.y-threshold});const clusters=[];active.forEach(item=>{let add=false;for(const c of clusters)if(c.some(ci=>Math.hypot(ci.cx-item.cx,ci.cy-item.cy)<180)){c.push(item);add=true;break}if(!add)clusters.push([item])});clusters.forEach(c=>{if(c.length===1){const item=c[0];item.tipElement.style.left=item.cx+'px';item.tipElement.style.top=(item.cy-item.h/2-8)+'px';item.tipElement.style.display='block'}else{const maxL=Math.max(...c.map(i=>i.level)),tops=c.filter(i=>i.level===maxL);const name=[...new Set(tops.flatMap(i=>{const n=[i.id];i.itemsOnTop?.forEach(s=>{if(s.id)n.push(s.id)});return n}))].join(' ');const p=tops[0],ax=tops.reduce((s,i)=>s+i.cx,0)/tops.length;const minT=Math.min(...tops.map(i=>i.cy-i.h/2));p.tipElement.textContent=name;p.tipElement.style.left=ax+'px';p.tipElement.style.top=(minT-8)+'px';p.tipElement.style.display='block'}});getChairs().forEach(chair=>{if(!chair.tipElement)return;const near=!isSitting&&isNearFurniture(chair),here=isSitting&&sitTarget==='chair'&&sitItem===chair;if(here||near){const occ=isItemOccupiedByRemote(chair);chair.actionTipElement.textContent=here?'V 键起身':(occ?'椅子已有人':'V 键坐下');chair.actionTipElement.style.color=occ&&!here?'#ff8a80':'#ffeb3b';chair.actionTipElement.style.left=chair.cx+'px';chair.actionTipElement.style.top=(chair.cy+chair.h/2+8)+'px';chair.actionTipElement.style.display='block'}});getSofas().forEach(sofa=>{if(!sofa.tipElement)return;const near=!isSitting&&isNearFurniture(sofa),here=isSitting&&sitTarget==='sofa'&&sitItem===sofa;if(here||near){const free=getFreeSeat(sofa);sofa.actionTipElement.textContent=here?'V 键起身':(free===null?'沙发已满':'V 键坐下');sofa.actionTipElement.style.color=free===null&&!here?'#ff8a80':'#ffeb3b';sofa.actionTipElement.style.left=sofa.cx+'px';sofa.actionTipElement.style.top=(sofa.cy+sofa.h/2+8)+'px';sofa.actionTipElement.style.display='block'}});getBeds().forEach(bed=>{if(!bed.tipElement)return;const near=!isSitting&&isNearFurniture(bed,200),here=isSitting&&sitTarget==='bed'&&sitItem===bed;if(here||near){const free=getFreeSeat(bed);bed.actionTipElement.textContent=here?'V 键起身':(free===null?'床已满':'V 键睡觉');bed.actionTipElement.style.color=free===null&&!here?'#ff8a80':'#ffeb3b';bed.actionTipElement.style.left=bed.cx+'px';bed.actionTipElement.style.top=(bed.cy+bed.h/2+8)+'px';bed.actionTipElement.style.display='block'}});
+ctx.clearRect(0,0,canvas.width,canvas.height);const renderList=[];carpetData.forEach((item,i)=>renderList.push({type:'carpet',data:item,y:item.cy+item.h/2,level:item.level,oi:i}));furnitureData.forEach((item,i)=>renderList.push({type:'furniture',data:item,y:item.cy+item.h/2,level:item.level,oi:i}));const sofa=getSofa(),bed=getBed(),chairBottom=sitItem&&sitTarget==='chair'?sitItem.cy+sitItem.h/2:0,sofaBottom=sofa?sofa.cy+sofa.h/2:0,bedBottom=bed?bed.cy+bed.h/2:0;const pBottom=isSitting?(sitTarget==='chair'?chairBottom:sitTarget==='sofa'?sofaBottom:bedBottom):(currentPBox.y+currentPBox.h);renderList.push({type:'player',y:pBottom,level:0,oi:9999});if(remote.active){let rBottom=remote.y+playerSize;if(remote.sitting){if(isRemoteOnBed())rBottom=bedBottom;else if(isRemoteOnChair()){for(const c of getChairs())if(Math.hypot((remote.x+playerSize/2)-c.cx,(remote.y+playerSize/2)-c.cy)<80){rBottom=c.cy+c.h/2;break}}else rBottom=sofaBottom}renderList.push({type:'remote',y:rBottom,level:0,oi:9998})}renderList.sort((a,b)=>a.level!==b.level?a.level-b.level:a.y!==b.y?a.y-b.y:a.type==='player'&&b.type!=='player'?1:a.type!=='player'&&b.type==='player'?-1:a.oi-b.oi);renderList.forEach(item=>{if(item.type==='carpet'){const c=item.data,img=images[c.src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h);else{ctx.fillStyle='#d7ccc8';ctx.fillRect(Math.round(c.cx-c.w/2),Math.round(c.cy-c.h/2),c.w,c.h)}}else if(item.type==='furniture'){const f=item.data,img=images[f.src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h);else{ctx.fillStyle='#8B4513';ctx.fillRect(Math.round(f.cx-f.w/2),Math.round(f.cy-f.h/2),f.w,f.h)}f.itemsOnTop?.forEach(sub=>{const si=images[sub.src],sx=f.cx+(sub.offsetX||0)-sub.w/2,sy=f.cy+(sub.offsetY||0)-sub.h/2;if(si?.complete&&si.naturalWidth)ctx.drawImage(si,Math.round(sx),Math.round(sy),sub.w,sub.h);else{ctx.fillStyle='#555';ctx.fillRect(Math.round(sx),Math.round(sy),sub.w,sub.h)}})}else if(item.type==='player'){const src=isSitting?(sitTarget==='bed'?playerSleep:playerSit):(isWalking?walkFrames[walkIdx]:playerIdle),img=images[src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(posX),Math.round(posY),playerSize,playerSize);else{ctx.fillStyle='#8A2BE2';ctx.fillRect(Math.round(posX),Math.round(posY),playerSize,playerSize)}}else if(item.type==='remote'){const src=remote.sitting?(isRemoteOnBed()?remoteSleep:remoteSit):(remote.walking?remoteWalk[remote.idx%remoteWalk.length]:remoteIdle),img=images[src];if(img?.complete&&img.naturalWidth)ctx.drawImage(img,Math.round(remote.x),Math.round(remote.y),playerSize,playerSize);else{ctx.fillStyle='#e91e63';ctx.fillRect(Math.round(remote.x),Math.round(remote.y),playerSize,playerSize)}}});if(!isSitting&&!chatOpen){if(isMoving()){if(!isWalking)startWalk()}else if(isWalking)stopWalk()}const now=Date.now();localBubbles=localBubbles.filter(b=>b.until>now);remoteBubbles=remoteBubbles.filter(b=>b.until>now);localStack.innerHTML='';localStack.style.left=(posX+playerSize/2)+'px';localStack.style.top=(posY-6)+'px';localStack.style.display=localBubbles.length?'flex':'none';localBubbles.forEach(b=>{const el=document.createElement('div');el.className='bbl';el.textContent=b.text;localStack.appendChild(el)});remoteStack.innerHTML='';if(remote.active){remoteStack.style.left=(remote.x+playerSize/2)+'px';remoteStack.style.top=(remote.y-6)+'px';remoteStack.style.display=remoteBubbles.length?'flex':'none';remoteBubbles.forEach(b=>{const el=document.createElement('div');el.className='bbl';el.textContent=b.text;remoteStack.appendChild(el)})}else remoteStack.style.display='none';coordsVal.textContent=`X: ${Math.round(posX)}, Y: ${Math.round(posY)}`;viewport.scrollTo({left:posX+playerSize/2-window.innerWidth/2,top:posY+playerSize/2-window.innerHeight/2,behavior:'auto'});requestAnimationFrame(update)}
 let ws=null,pc=null,dc=null,myRole=null,currentRoom='',offerHandled=false,pendingCandidates=[],signalPosTimer=null,keepAliveTimer=null,disconnectTimer=null;
 inputWss.value=localStorage.getItem('game_wss_url')||'wss://test.hefengcy.com';
 document.getElementById('btn-mode-single').onclick=()=>{isOnlineMode=false;gameReady=true;peerSynced=true;modeModal.classList.remove('show');btnOnline.style.display='none';btnBackMode.style.display='inline-block';onlineStatus.textContent='单人模式';applySpawn('host');showGame();log('已进入单人模式')};
@@ -329,40 +167,11 @@ function startKeepAlive(){if(keepAliveTimer)clearInterval(keepAliveTimer);keepAl
 async function flushPendingCandidates(){while(pendingCandidates.length){const c=pendingCandidates.shift();try{await pc.addIceCandidate(c)}catch(e){log('添加 candidate 失败: '+e.message)}}}
 function fullDisconnect(reason){if(signalPosTimer){clearInterval(signalPosTimer);signalPosTimer=null}if(keepAliveTimer){clearInterval(keepAliveTimer);keepAliveTimer=null}if(disconnectTimer){clearTimeout(disconnectTimer);disconnectTimer=null}if(dc){try{dc.close()}catch{}dc=null}if(pc){try{pc.close()}catch{}pc=null}if(ws){try{ws.close()}catch{}ws=null}remote.active=false;remote.sitting=false;remote.walking=false;peerSynced=false;gameReady=false;offerHandled=false;pendingCandidates=[];myRole=null;currentRoom='';onlineStatus.textContent=isOnlineMode?'未连接':'单人模式';log(reason||'已断开连接')}
 function tryEnterGame(){if(gameReady)return;if(dc&&dc.readyState==='open'&&peerSynced){gameReady=true;setWaitingInfo('连接成功','正在进入游戏...',currentRoom);applySpawn(myRole||'host');setTimeout(()=>{showGame();log('双方已连接，开始游戏！')},500)}}
-function connectSignaling(url,room,mode){
-fullDisconnect();waitingOverlay.classList.add('show');setWaitingInfo('等待对方进入','正在连接信令服务器...',mode==='create'?room:null);
-currentRoom=room;onlineStatus.textContent='连接中...';remote={x:mode==='create'?SPAWN_JOIN.x:SPAWN_HOST.x,y:SPAWN_JOIN.y,sitting:false,walking:false,idx:0,active:false};peerSynced=false;gameReady=false;
-ws=new WebSocket(url);
-ws.onopen=()=>{log('信令已连接');if(mode==='create'){setWaitingInfo('等待对方加入','房间创建中...',room);myRole='host';setPlayerAssets('host');applySpawn('host');ws.send(JSON.stringify({type:'create',room,x:posX,y:posY}))}else{setWaitingInfo('正在加入','正在加入房间 '+room+' ...',null);myRole='join';setPlayerAssets('join');applySpawn('join');ws.send(JSON.stringify({type:'join',room}))}signalPosTimer=setInterval(sendPosViaSignal,150);startKeepAlive()};
-ws.onmessage=async ev=>{
-let msg;try{msg=JSON.parse(ev.data)}catch{return}
-if(msg.type==='room-created'){log('房间创建成功，等待加入...');onlineStatus.textContent='房间 '+room+' 已创建，等待加入...';setWaitingInfo('等待对方加入','房间已创建，请等待对方进入',room);initWebRTC(true);sendPosViaSignal()}
-if(msg.type==='joined'){log('成功加入房间');onlineStatus.textContent='已加入房间 '+room;setWaitingInfo('正在连接','已加入房间，正在建立连接...',room);initWebRTC(false);sendPosViaSignal()}
-if(msg.type==='error'){const t=msg.message||'未知错误';log('错误: '+t);fullDisconnect('连接错误');waitingOverlay.classList.remove('show');if(/不存在|not exist|not found|no room/i.test(t))showError('房间不存在，请检查房间号后重试');else if(/满|full|already/i.test(t))showError('房间已满，无法加入');else showError(t)}
-if(msg.type==='pos'){remote.x=msg.x;remote.y=msg.y;remote.sitting=!!msg.sitting;remote.walking=!!msg.walking;remote.idx=msg.idx||0;remote.active=true;peerSynced=true;tryEnterGame()}
-if(msg.type==='offer'&&myRole==='join'&&!offerHandled){offerHandled=true;log('收到 Offer');setWaitingInfo('正在连接','正在交换连接信息...',room);await handleRemoteOffer(msg.sdp)}
-if(msg.type==='answer'&&myRole==='host'){log('收到 Answer');if(pc&&pc.signalingState==='have-local-offer'){await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));await flushPendingCandidates();sendStateBurst()}}
-if(msg.type==='candidate'){if(!pc){pendingCandidates.push(msg.candidate);return}if(pc.remoteDescription){try{await pc.addIceCandidate(msg.candidate)}catch(e){log('添加 candidate 失败: '+e.message)}}else pendingCandidates.push(msg.candidate)}
-if(msg.type==='peer-left'){log('对方已离开');backToModeSelect('对方离开，已退出房间')}
-};
-ws.onclose=()=>{if(onlineStatus.textContent!=='未连接'&&onlineStatus.textContent!=='单人模式')backToModeSelect('信令断开')};
-ws.onerror=()=>{log('信令连接失败');fullDisconnect('信令连接失败');waitingOverlay.classList.remove('show');showError('无法连接信令服务器，请检查地址后重试')};
-}
-function initWebRTC(isHost){
-pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});
-pc.onicecandidate=e=>{if(e.candidate)sendSignal({type:'candidate',candidate:e.candidate,room:currentRoom})};
-pc.onconnectionstatechange=()=>{const st=pc.connectionState;log('连接状态: '+st);if(st==='connected'){if(disconnectTimer){clearTimeout(disconnectTimer);disconnectTimer=null}onlineStatus.textContent=(onlineStatus.textContent.replace('等待加入...','已连接'))+' (P2P已连通)';setWaitingInfo('连接成功','P2P已连通，等待状态同步...',currentRoom);tryEnterGame()}else if(st==='disconnected'){if(disconnectTimer)clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(pc&&pc.connectionState!=='connected')backToModeSelect('连接超时未恢复')},12000)}else if(st==='failed'||st==='closed')backToModeSelect('P2P连接失败/关闭')};
-pc.ondatachannel=e=>{dc=e.channel;setupDC()};
-if(isHost){dc=pc.createDataChannel('game',{ordered:true});setupDC();createAndSendOffer()}
-}
+function connectSignaling(url,room,mode){fullDisconnect();waitingOverlay.classList.add('show');setWaitingInfo('等待对方进入','正在连接信令服务器...',mode==='create'?room:null);currentRoom=room;onlineStatus.textContent='连接中...';remote={x:mode==='create'?SPAWN_JOIN.x:SPAWN_HOST.x,y:SPAWN_JOIN.y,sitting:false,walking:false,idx:0,active:false};peerSynced=false;gameReady=false;ws=new WebSocket(url);ws.onopen=()=>{log('信令已连接');if(mode==='create'){setWaitingInfo('等待对方加入','房间创建中...',room);myRole='host';setPlayerAssets('host');applySpawn('host');ws.send(JSON.stringify({type:'create',room,x:posX,y:posY}))}else{setWaitingInfo('正在加入','正在加入房间 '+room+' ...',null);myRole='join';setPlayerAssets('join');applySpawn('join');ws.send(JSON.stringify({type:'join',room}))}signalPosTimer=setInterval(sendPosViaSignal,150);startKeepAlive()};ws.onmessage=async ev=>{let msg;try{msg=JSON.parse(ev.data)}catch{return}if(msg.type==='room-created'){log('房间创建成功，等待加入...');onlineStatus.textContent='房间 '+room+' 已创建，等待加入...';setWaitingInfo('等待对方加入','房间已创建，请等待对方进入',room);initWebRTC(true);sendPosViaSignal()}if(msg.type==='joined'){log('成功加入房间');onlineStatus.textContent='已加入房间 '+room;setWaitingInfo('正在连接','已加入房间，正在建立连接...',room);initWebRTC(false);sendPosViaSignal()}if(msg.type==='error'){const t=msg.message||'未知错误';log('错误: '+t);fullDisconnect('连接错误');waitingOverlay.classList.remove('show');if(/不存在|not exist|not found|no room/i.test(t))showError('房间不存在，请检查房间号后重试');else if(/满|full|already/i.test(t))showError('房间已满，无法加入');else showError(t)}if(msg.type==='pos'){remote.x=msg.x;remote.y=msg.y;remote.sitting=!!msg.sitting;remote.walking=!!msg.walking;remote.idx=msg.idx||0;remote.active=true;peerSynced=true;tryEnterGame()}if(msg.type==='chat'){addChatMsg('them',msg.text||'')}if(msg.type==='offer'&&myRole==='join'&&!offerHandled){offerHandled=true;log('收到 Offer');setWaitingInfo('正在连接','正在交换连接信息...',room);await handleRemoteOffer(msg.sdp)}if(msg.type==='answer'&&myRole==='host'){log('收到 Answer');if(pc&&pc.signalingState==='have-local-offer'){await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));await flushPendingCandidates();sendStateBurst()}}if(msg.type==='candidate'){if(!pc){pendingCandidates.push(msg.candidate);return}if(pc.remoteDescription){try{await pc.addIceCandidate(msg.candidate)}catch(e){log('添加 candidate 失败: '+e.message)}}else pendingCandidates.push(msg.candidate)}if(msg.type==='peer-left'){log('对方已离开');backToModeSelect('对方离开，已退出房间')}};ws.onclose=()=>{if(onlineStatus.textContent!=='未连接'&&onlineStatus.textContent!=='单人模式')backToModeSelect('信令断开')};ws.onerror=()=>{log('信令连接失败');fullDisconnect('信令连接失败');waitingOverlay.classList.remove('show');showError('无法连接信令服务器，请检查地址后重试')}}
+function initWebRTC(isHost){pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});pc.onicecandidate=e=>{if(e.candidate)sendSignal({type:'candidate',candidate:e.candidate,room:currentRoom})};pc.onconnectionstatechange=()=>{const st=pc.connectionState;log('连接状态: '+st);if(st==='connected'){if(disconnectTimer){clearTimeout(disconnectTimer);disconnectTimer=null}onlineStatus.textContent=(onlineStatus.textContent.replace('等待加入...','已连接'))+' (P2P已连通)';setWaitingInfo('连接成功','P2P已连通，等待状态同步...',currentRoom);tryEnterGame()}else if(st==='disconnected'){if(disconnectTimer)clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(pc&&pc.connectionState!=='connected')backToModeSelect('连接超时未恢复')},12000)}else if(st==='failed'||st==='closed')backToModeSelect('P2P连接失败/关闭')};pc.ondatachannel=e=>{dc=e.channel;setupDC()};if(isHost){dc=pc.createDataChannel('game',{ordered:true});setupDC();createAndSendOffer()}}
 async function createAndSendOffer(){try{const offer=await pc.createOffer();await pc.setLocalDescription(offer);setTimeout(()=>{if(pc.localDescription)sendSignal({type:'offer',sdp:pc.localDescription,room:currentRoom})},800)}catch(e){log('创建 Offer 失败: '+e.message)}}
 async function handleRemoteOffer(sdp){try{await pc.setRemoteDescription(new RTCSessionDescription(sdp));await flushPendingCandidates();const answer=await pc.createAnswer();await pc.setLocalDescription(answer);setTimeout(()=>{if(pc.localDescription)sendSignal({type:'answer',sdp:pc.localDescription,room:currentRoom})},800)}catch(e){log('处理 Offer 失败: '+e.message)}}
-function setupDC(){
-dc.onopen=()=>{log('数据通道已打开');if(signalPosTimer){clearInterval(signalPosTimer);signalPosTimer=null}sendStateNow();sendStateBurst();setWaitingInfo('连接成功','数据通道已打开，等待状态同步...',currentRoom);tryEnterGame()};
-dc.onclose=()=>{if(disconnectTimer)clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(!dc||dc.readyState!=='open')backToModeSelect('数据通道长时间未恢复')},12000)};
-dc.onmessage=e=>{try{const data=JSON.parse(e.data);remote.x=data.x;remote.y=data.y;remote.sitting=!!data.sitting;remote.walking=!!data.walking;remote.idx=data.idx||0;remote.active=true;peerSynced=true;tryEnterGame();const now=Date.now();if(now-lastRemoteLog>500){lastRemoteLog=now;log(`对方 → X:${Math.round(remote.x)} Y:${Math.round(remote.y)}`)}}catch{}};
-setInterval(()=>{if(dc&&dc.readyState==='open')try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}))}catch{}},40);
-}
+function setupDC(){dc.onopen=()=>{log('数据通道已打开');if(signalPosTimer){clearInterval(signalPosTimer);signalPosTimer=null}sendStateNow();sendStateBurst();setWaitingInfo('连接成功','数据通道已打开，等待状态同步...',currentRoom);tryEnterGame()};dc.onclose=()=>{if(disconnectTimer)clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(!dc||dc.readyState!=='open')backToModeSelect('数据通道长时间未恢复')},12000)};dc.onmessage=e=>{try{const data=JSON.parse(e.data);if(data.type==='chat'){addChatMsg('them',data.text||'');return}remote.x=data.x;remote.y=data.y;remote.sitting=!!data.sitting;remote.walking=!!data.walking;remote.idx=data.idx||0;remote.active=true;peerSynced=true;tryEnterGame();const now=Date.now();if(now-lastRemoteLog>500){lastRemoteLog=now;log(`对方 → X:${Math.round(remote.x)} Y:${Math.round(remote.y)}`)}}catch{}};setInterval(()=>{if(dc&&dc.readyState==='open')try{dc.send(JSON.stringify({x:posX,y:posY,sitting:isSitting,walking:isWalking,idx:walkIdx}))}catch{}},40)}
 preloadAllImages().then(()=>{[playerIdle,playerSit,playerSleep,...walkFrames,remoteIdle,remoteSit,remoteSleep,...remoteWalk].forEach(loadImage);log('系统初始化完成');update()});
 </script>
 </body>
